@@ -34,16 +34,20 @@ export default function Search() {
     }
   }
 
-  async function importBook(externalId: number) {
-    setBusyId(externalId)
+  async function importBook(book: BookSearchResult) {
+    setBusyId(book.externalId)
     setError(null)
     setNotice(null)
     try {
-      await api.importBook(externalId)
-      setImported((previous) => [...previous, externalId])
+      await api.importBook(book)
+      setImported((previous) => [...previous, book.externalId])
       setNotice('Libro guardado en tu biblioteca (Project Gutenberg, dominio público).')
     } catch (err) {
-      setError(errorMessage(err))
+      const suffix =
+        err instanceof ApiError && err.status === 502
+          ? ' El servicio externo tardó demasiado: volvé a intentar.'
+          : ''
+      setError(errorMessage(err) + suffix)
     } finally {
       setBusyId(null)
     }
@@ -104,7 +108,7 @@ export default function Search() {
                     ) : book.epubAvailable ? (
                       <button
                         type="button"
-                        onClick={() => void importBook(book.externalId)}
+                        onClick={() => void importBook(book)}
                         disabled={busyId === book.externalId}
                       >
                         {busyId === book.externalId ? 'Guardando…' : 'Importar EPUB'}

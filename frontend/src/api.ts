@@ -18,6 +18,7 @@ export interface BookSearchResult {
   authors: string[]
   language?: string
   coverUrl?: string
+  description?: string
   downloadCount: number
   epubAvailable: boolean
 }
@@ -142,10 +143,17 @@ export const api = {
     }
   },
 
-  importBook: (externalId: number) =>
+  importBook: (book: BookSearchResult) =>
     request<BookDetail>('/api/books/import', {
       method: 'POST',
-      body: JSON.stringify({ externalId }),
+      body: JSON.stringify({
+        externalId: book.externalId,
+        title: book.title,
+        authors: book.authors,
+        language: book.language,
+        coverUrl: book.coverUrl,
+        description: book.description,
+      }),
     }),
 
   library: () => request<BookDetail[]>('/api/books'),
