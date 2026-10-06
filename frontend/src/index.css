@@ -462,9 +462,15 @@ button.secondary:hover:not(:disabled) {
   font-weight: 600;
 }
 
-.files button {
-  margin-top: 0;
+.files-actions {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.files button {
+  margin: 0;
   padding: 6px 12px;
   font-size: 13px;
 }

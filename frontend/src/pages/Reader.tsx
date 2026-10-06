@@ -17,6 +17,26 @@ interface SpineEntry {
   href: string
 }
 
+function spineSections(spine: unknown): SpineEntry[] {
+  const items: SpineEntry[] = []
+  const anySpine = spine as {
+    spineItems?: Array<{ index: number; href?: string }>
+    each?: (fn: (section: { index: number; href?: string }) => void) => void
+  }
+  if (Array.isArray(anySpine)) {
+    for (const section of anySpine as Array<unknown>) {
+      items.push({ index: (section as { index: number; href?: string }).index, href: (section as { index: number; href?: string }).href ?? '' })
+    }
+  } else if (anySpine.spineItems) {
+    for (const section of anySpine.spineItems) {
+      items.push({ index: section.index, href: section.href ?? '' })
+    }
+  } else if (anySpine.each) {
+    anySpine.each((section) => items.push({ index: section.index, href: section.href ?? '' }))
+  }
+  return items
+}
+
 function normalizeHref(href: string): string {
   return href.replace(/^\.\//, '')
 }
@@ -78,7 +98,7 @@ export default function Reader() {
         setBookTitle(metadata.title ?? stateTitle ?? 'Libro')
         const flatToc = flattenToc(loadedNav.toc)
         setToc(flatToc)
-        setSpine(loadedSpine.map((section) => ({ index: section.index, href: section.href ?? '' })))
+        setSpine(spineSections(loadedSpine))
 
         if (!containerRef.current) return
 

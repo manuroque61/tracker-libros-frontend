@@ -75,24 +75,26 @@ export default function Library() {
                     <li key={file.id}>
                       <span className="file-kind">{file.kind}</span>
                       <span className="muted">{formatSize(file.size)}</span>
-                      {file.kind === 'EPUB' && (
+                      <span className="files-actions">
+                        {file.kind === 'EPUB' && (
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() =>
+                              navigate(`/leer/${book.id}/${file.id}`, { state: { title: book.title } })
+                            }
+                          >
+                            Leer
+                          </button>
+                        )}
                         <button
                           type="button"
-                          className="secondary"
-                          onClick={() =>
-                            navigate(`/leer/${book.id}/${file.id}`, { state: { title: book.title } })
-                          }
+                          onClick={() => void download(book, file)}
+                          disabled={downloading === file.id}
                         >
-                          Leer
+                          {downloading === file.id ? 'Bajando…' : 'Descargar'}
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => void download(book, file)}
-                        disabled={downloading === file.id}
-                      >
-                        {downloading === file.id ? 'Bajando…' : 'Descargar'}
-                      </button>
+                      </span>
                     </li>
                   ))}
                 </ul>
