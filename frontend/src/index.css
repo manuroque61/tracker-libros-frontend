@@ -449,8 +449,9 @@ button.secondary:hover:not(:disabled) {
 
 .files li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px 10px;
   font-size: 13px;
 }
 
@@ -466,13 +467,17 @@ button.secondary:hover:not(:disabled) {
   margin-left: auto;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .files button {
   margin: 0;
   padding: 6px 12px;
   font-size: 13px;
+  white-space: nowrap;
+  flex: none;
 }
 
 .empty {
