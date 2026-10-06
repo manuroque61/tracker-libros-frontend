@@ -107,6 +107,7 @@ export default function Reader() {
           height: '100%',
           flow: 'paginated',
           spread: 'none',
+          allowScriptedContent: true,
         })
         renditionRef.current = rendition
         await rendition.display()
