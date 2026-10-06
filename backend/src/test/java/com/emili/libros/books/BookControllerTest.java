@@ -91,6 +91,21 @@ class BookControllerTest {
     }
 
     @Test
+    void searchWithoutQueryParameterReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/books/search").header("Authorization", bearer()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void downloadWithMalformedIdentifiersReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/books/{bookId}/files/{fileId}", "no-uuid", "tampoco-uuid")
+                        .header("Authorization", bearer()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
     void searchMapsGutendexResults() throws Exception {
         when(gutendexClient.search(eq("frankenstein"), anyInt())).thenReturn(objectMapper.readTree(SEARCH_JSON));
 
