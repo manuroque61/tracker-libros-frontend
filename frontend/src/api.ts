@@ -158,8 +158,8 @@ export const api = {
 
   library: () => request<BookDetail[]>('/api/books'),
 
-  async download(bookId: string, file: BookFileInfo): Promise<void> {
-    const res = await fetch(`/api/books/${bookId}/files/${file.id}`, { headers: authHeaders() })
+  async getFile(bookId: string, fileId: string): Promise<{ blob: Blob; filename: string }> {
+    const res = await fetch(`/api/books/${bookId}/files/${fileId}`, { headers: authHeaders() })
     if (!res.ok) {
       let message = `Error ${res.status}`
       try {
@@ -171,14 +171,33 @@ export const api = {
       throw new ApiError(res.status, message)
     }
 
-    const blob = await res.blob()
+    const filename = filenameFromDisposition(res.headers.get('Content-Disposition')) ?? 'libro.epub'
+    return { blob: await res.blob(), filename }
+  },
+
+  async download(bookId: string, file: BookFileInfo): Promise<void> {
+    const { blob, filename } = await this.getFile(bookId, file.id)
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = file.filename
+    anchor.download = filename
     document.body.appendChild(anchor)
     anchor.click()
     anchor.remove()
     URL.revokeObjectURL(url)
   },
+}
+
+function filenameFromDisposition(disposition: string | null): string | null {
+  if (!disposition) return null
+  const match = disposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (match) {
+    try {
+      return decodeURIComponent(match[1].trim())
+    } catch {
+      return match[1].trim()
+    }
+  }
+  const plain = disposition.match(/filename="?([^";]+)"?/i)
+  return plain ? plain[1].trim() : null
 }

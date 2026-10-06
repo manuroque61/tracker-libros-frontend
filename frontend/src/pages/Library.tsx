@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api, errorMessage, type BookDetail, type BookFileInfo } from '../api'
 import { BookCover } from '../components/BookCover'
 
@@ -9,6 +9,7 @@ function formatSize(bytes: number): string {
 }
 
 export default function Library() {
+  const navigate = useNavigate()
   const [books, setBooks] = useState<BookDetail[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState<string | null>(null)
@@ -74,6 +75,17 @@ export default function Library() {
                     <li key={file.id}>
                       <span className="file-kind">{file.kind}</span>
                       <span className="muted">{formatSize(file.size)}</span>
+                      {file.kind === 'EPUB' && (
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() =>
+                            navigate(`/leer/${book.id}/${file.id}`, { state: { title: book.title } })
+                          }
+                        >
+                          Leer
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => void download(book, file)}

@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import {
   BrowserRouter,
   NavLink,
@@ -12,6 +12,8 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Search from './pages/Search'
 import Library from './pages/Library'
+
+const Reader = lazy(() => import('./pages/Reader'))
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth()
@@ -99,6 +101,16 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <Library />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/leer/:bookId/:fileId"
+                element={
+                  <RequireAuth>
+                    <Suspense fallback={<p className="muted placeholder">Cargando…</p>}>
+                      <Reader />
+                    </Suspense>
                   </RequireAuth>
                 }
               />
