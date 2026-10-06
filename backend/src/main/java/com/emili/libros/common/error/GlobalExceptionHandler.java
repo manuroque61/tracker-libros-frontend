@@ -14,6 +14,7 @@ import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.client.RestClientException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -31,6 +32,11 @@ public class GlobalExceptionHandler {
                     fieldError.getDefaultMessage() != null ? fieldError.getDefaultMessage() : "inválido");
         }
         return respond(HttpStatus.BAD_REQUEST, "Validación fallida", request, fields);
+    }
+
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ApiError> handleBadRequest(BadRequestException ex, HttpServletRequest request) {
+        return respond(HttpStatus.BAD_REQUEST, ex.getMessage(), request, null);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
@@ -58,6 +64,11 @@ public class GlobalExceptionHandler {
         return respond(HttpStatus.CONFLICT, "La operación entra en conflicto con los datos existentes", request, null);
     }
 
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ApiError> handleUnauthorized(UnauthorizedException ex, HttpServletRequest request) {
+        return respond(HttpStatus.UNAUTHORIZED, ex.getMessage(), request, null);
+    }
+
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiError> handleAuthentication(AuthenticationException ex, HttpServletRequest request) {
         return respond(HttpStatus.UNAUTHORIZED, "Credenciales inválidas", request, null);
@@ -66,6 +77,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
         return respond(HttpStatus.FORBIDDEN, "Acceso denegado", request, null);
+    }
+
+    @ExceptionHandler(RestClientException.class)
+    public ResponseEntity<ApiError> handleExternal(RestClientException ex, HttpServletRequest request) {
+        log.warn("Falla consultando fuente externa en {}", request.getRequestURI(), ex);
+        return respond(HttpStatus.BAD_GATEWAY, "No se pudo consultar la fuente externa", request, null);
     }
 
     @ExceptionHandler(Exception.class)

@@ -17,3 +17,10 @@ spring:
 app:
   jwt:
     secret: "test-secret-0123456789abcdef0123456789abcdef-test"
+  storage:
+    root: ./target/test-storage
+  external:
+    gutendex-base-url: https://gutendex.com
+    openlibrary-base-url: https://openlibrary.org
+    connect-timeout: 5s
+    read-timeout: 15s
