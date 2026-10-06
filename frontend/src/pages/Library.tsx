@@ -46,11 +46,25 @@ export default function Library() {
       <header className="page-header">
         <h1>Mi biblioteca</h1>
         <p className="muted">Libros importados desde Project Gutenberg.</p>
+        {books !== null && books.length > 0 && (
+          <p className="stats">
+            <span>
+              <strong>{books.length}</strong> {books.length === 1 ? 'libro' : 'libros'}
+            </span>
+            <span>
+              <strong>{books.reduce((count, book) => count + book.files.length, 0)}</strong> archivos
+            </span>
+          </p>
+        )}
       </header>
 
       {error && <div className="alert">{error}</div>}
 
-      {books === null && !error && <p className="muted placeholder">Cargando…</p>}
+      {books === null && !error && (
+        <p className="muted placeholder">
+          <span className="spinner" /> Cargando tu biblioteca…
+        </p>
+      )}
 
       {books !== null && books.length === 0 && (
         <div className="empty">

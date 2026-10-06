@@ -173,11 +173,11 @@ export default function Reader() {
           <span className="muted reader-chapter">
             {progress.chapterLabel} {progress.total > 0 && `· ${progress.page}/${progress.total}`}
           </span>
-          <button type="button" onClick={previousPage} disabled={loading || !!error} aria-label="Anterior">
+          <button type="button" className="btn-square" onClick={previousPage} disabled={loading || !!error} aria-label="Anterior">
             ‹
           </button>
           <span className="reader-percent">{loading ? '…' : `${percent}%`}</span>
-          <button type="button" onClick={nextPage} disabled={loading || !!error} aria-label="Siguiente">
+          <button type="button" className="btn-square" onClick={nextPage} disabled={loading || !!error} aria-label="Siguiente">
             ›
           </button>
           <button type="button" onClick={() => changeFontSize(-10)} aria-label="Reducir texto" className="font">
@@ -201,6 +201,10 @@ export default function Reader() {
             </select>
           )}
         </div>
+      </div>
+
+      <div className="reader-progress">
+        <span style={{ width: `${loading ? 0 : percent}%` }} />
       </div>
 
       {error && (

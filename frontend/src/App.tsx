@@ -46,7 +46,7 @@ function Header() {
       )}
       {user && (
         <div className="user">
-          <span className="muted">{user.username}</span>
+          <span className="user-chip">{user.username}</span>
           <button
             type="button"
             className="link"

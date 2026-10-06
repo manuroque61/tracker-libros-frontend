@@ -94,6 +94,12 @@ export default function Search() {
         </div>
       )}
 
+      {loading && (
+        <p className="muted placeholder">
+          <span className="spinner" /> Buscando en Project Gutenberg…
+        </p>
+      )}
+
       {results !== null && results.length === 0 && !loading && (
         <p className="muted">Sin resultados para esa búsqueda.</p>
       )}
