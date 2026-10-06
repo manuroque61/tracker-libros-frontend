@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { api, errorMessage, type BookSearchResult } from '../api'
+import { api, ApiError, errorMessage, type BookSearchResult } from '../api'
 import { BookCover } from '../components/BookCover'
 
 export default function Search() {
@@ -23,7 +23,11 @@ export default function Search() {
     try {
       setResults(await api.search(trimmed))
     } catch (err) {
-      setError(errorMessage(err))
+      const suffix =
+        err instanceof ApiError && err.status === 502
+          ? ' El servicio de búsqueda tardó demasiado: volvé a intentar.'
+          : ''
+      setError(errorMessage(err) + suffix)
       setResults([])
     } finally {
       setLoading(false)

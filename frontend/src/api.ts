@@ -129,8 +129,18 @@ export const api = {
 
   me: () => request<UserResponse>('/api/auth/me'),
 
-  search: (query: string, page = 1) =>
-    request<BookSearchResult[]>(`/api/books/search?q=${encodeURIComponent(query)}&page=${page}`),
+  search: async (query: string, page = 1) => {
+    const path = `/api/books/search?q=${encodeURIComponent(query)}&page=${page}`
+    try {
+      return await request<BookSearchResult[]>(path)
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 502) {
+        await new Promise((resolve) => setTimeout(resolve, 700))
+        return request<BookSearchResult[]>(path)
+      }
+      throw error
+    }
+  },
 
   importBook: (externalId: number) =>
     request<BookDetail>('/api/books/import', {
