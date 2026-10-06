@@ -234,6 +234,13 @@ class BookControllerTest {
                 .andExpect(jsonPath("$.length()").value(0));
     }
 
+    @Test
+    void unknownPathReturnsNotFound() throws Exception {
+        mockMvc.perform(get("/api/ruta-que-no-existe").header("Authorization", bearer()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
     private void stubBook() throws Exception {
         when(gutendexClient.book(84)).thenReturn(objectMapper.readTree(BOOK_JSON));
     }
