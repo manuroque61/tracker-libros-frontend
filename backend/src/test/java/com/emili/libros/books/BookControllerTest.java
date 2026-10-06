@@ -22,8 +22,12 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -56,6 +60,8 @@ class BookControllerTest {
             {"count": 1, "results": [%s]}
             """.formatted(BOOK_JSON);
 
+    private static final byte[] EPUB_BYTES = {'P', 'K', 3, 4, 1, 2, 3, 4};
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -71,6 +77,9 @@ class BookControllerTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private SearchCache searchCache;
+
     @MockitoBean
     private GutendexClient gutendexClient;
 
@@ -81,6 +90,7 @@ class BookControllerTest {
         bookFileRepository.deleteAll();
         bookRepository.deleteAll();
         userRepository.deleteAll();
+        searchCache.clear();
         token = register("emili", "emili@example.com");
     }
 
@@ -124,7 +134,7 @@ class BookControllerTest {
     @Test
     void importDownloadsEpubAndListReturnsIt() throws Exception {
         stubBook();
-        byte[] epub = "epub-bytes".getBytes();
+        byte[] epub = EPUB_BYTES;
         when(gutendexClient.download("https://www.gutenberg.org/ebooks/84.epub3.images")).thenReturn(epub);
 
         MvcResult imported = mockMvc.perform(post("/api/books/import")
@@ -158,7 +168,7 @@ class BookControllerTest {
     @Test
     void importIsIdempotentForSameUserAndBook() throws Exception {
         stubBook();
-        when(gutendexClient.download(anyString())).thenReturn("epub-bytes".getBytes());
+        when(gutendexClient.download(anyString())).thenReturn(EPUB_BYTES);
 
         MvcResult first = mockMvc.perform(post("/api/books/import")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -198,7 +208,7 @@ class BookControllerTest {
     @Test
     void downloadOfAnotherUsersFileReturnsNotFound() throws Exception {
         stubBook();
-        when(gutendexClient.download(anyString())).thenReturn("epub-bytes".getBytes());
+        when(gutendexClient.download(anyString())).thenReturn(EPUB_BYTES);
 
         String otherToken = register("otra", "otra@example.com");
         MvcResult imported = mockMvc.perform(post("/api/books/import")
@@ -220,7 +230,7 @@ class BookControllerTest {
     @Test
     void listOnlyReturnsBooksImportedByTheUser() throws Exception {
         stubBook();
-        when(gutendexClient.download(anyString())).thenReturn("epub-bytes".getBytes());
+        when(gutendexClient.download(anyString())).thenReturn(EPUB_BYTES);
         String otherToken = register("otra", "otra@example.com");
 
         mockMvc.perform(post("/api/books/import")
@@ -239,6 +249,43 @@ class BookControllerTest {
         mockMvc.perform(get("/api/ruta-que-no-existe").header("Authorization", bearer()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    void searchResultsAreCached() throws Exception {
+        when(gutendexClient.search(anyString(), anyInt())).thenReturn(objectMapper.readTree(SEARCH_JSON));
+
+        mockMvc.perform(get("/api/books/search").param("q", "Tolkien").header("Authorization", bearer()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].externalId").value(84));
+
+        mockMvc.perform(get("/api/books/search").param("q", "  tolkien ").header("Authorization", bearer()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].externalId").value(84));
+
+        verify(gutendexClient, times(1)).search(anyString(), anyInt());
+    }
+
+    @Test
+    void importWithClientMetadataSkipsExternalMetadataLookup() throws Exception {
+        when(gutendexClient.download("https://www.gutenberg.org/ebooks/84.epub3.images")).thenReturn(EPUB_BYTES);
+
+        mockMvc.perform(post("/api/books/import")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"externalId":84,"title":"Frankenstein",
+                                 "authors":["Shelley, Mary Wollstonecraft"],"language":"en",
+                                 "coverUrl":"https://example.org/cover.jpg","description":"Resumen de prueba"}
+                                """)
+                        .header("Authorization", bearer()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.title").value("Frankenstein"))
+                .andExpect(jsonPath("$.description").value("Resumen de prueba"))
+                .andExpect(jsonPath("$.coverUrl").value("https://example.org/cover.jpg"))
+                .andExpect(jsonPath("$.authors[0]").value("Shelley, Mary Wollstonecraft"))
+                .andExpect(jsonPath("$.files[0].kind").value("EPUB"));
+
+        verify(gutendexClient, never()).book(anyLong());
     }
 
     private void stubBook() throws Exception {

@@ -60,7 +60,7 @@ public class BookController {
     public ResponseEntity<BookDetail> importBook(@Valid @RequestBody ImportBookRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         User user = currentUser.require(jwt);
-        BookService.ImportOutcome outcome = bookService.importBook(request.externalId(), user);
+        BookService.ImportOutcome outcome = bookService.importBook(request, user);
         return ResponseEntity.status(outcome.created() ? HttpStatus.CREATED : HttpStatus.OK)
                 .body(outcome.detail());
     }

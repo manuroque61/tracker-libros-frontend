@@ -3,13 +3,17 @@ package com.emili.libros.books;
 import com.emili.libros.books.dto.BookDetail;
 import com.emili.libros.books.dto.BookFileInfo;
 import com.emili.libros.books.dto.BookSearchResult;
+import com.emili.libros.books.dto.ImportBookRequest;
 import com.emili.libros.books.external.GutendexClient;
 import com.emili.libros.common.error.ConflictException;
 import com.emili.libros.common.error.NotFoundException;
 import com.emili.libros.users.User;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
 import tools.jackson.databind.JsonNode;
 
 import java.io.IOException;
@@ -24,22 +28,32 @@ import java.util.Optional;
 @Service
 public class BookService {
 
+    private static final Logger log = LoggerFactory.getLogger(BookService.class);
+
     private static final int MAX_FILE_BYTES = 64 * 1024 * 1024;
 
     private final GutendexClient gutendexClient;
     private final BookRepository bookRepository;
     private final BookFileRepository bookFileRepository;
     private final StorageService storageService;
+    private final SearchCache searchCache;
 
     public BookService(GutendexClient gutendexClient, BookRepository bookRepository,
-            BookFileRepository bookFileRepository, StorageService storageService) {
+            BookFileRepository bookFileRepository, StorageService storageService, SearchCache searchCache) {
         this.gutendexClient = gutendexClient;
         this.bookRepository = bookRepository;
         this.bookFileRepository = bookFileRepository;
         this.storageService = storageService;
+        this.searchCache = searchCache;
     }
 
     public List<BookSearchResult> search(String query, int page) {
+        String cacheKey = SearchCache.key(query, page);
+        List<BookSearchResult> cached = searchCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+
         JsonNode root;
         try {
             root = gutendexClient.search(query, page);
@@ -53,19 +67,26 @@ public class BookService {
         for (JsonNode node : root.path("results")) {
             results.add(toSearchResult(node));
         }
+        searchCache.put(cacheKey, results);
         return results;
     }
 
     @Transactional
-    public ImportOutcome importBook(long externalId, User user) {
-        JsonNode node = fetchBook(externalId);
-        String epubUrl = pickEpubUrl(node);
-        if (epubUrl == null) {
-            throw new ConflictException("El libro no tiene un EPUB disponible en Project Gutenberg");
-        }
-
+    public ImportOutcome importBook(ImportBookRequest request, User user) {
+        long externalId = request.externalId();
         Book book = bookRepository.findBySourceAndExternalId(GutendexClient.SOURCE, String.valueOf(externalId))
-                .orElseGet(() -> bookRepository.save(fromGutendex(node, externalId)));
+                .orElse(null);
+
+        String preferredEpubUrl = null;
+        if (book == null) {
+            if (request.hasMetadata()) {
+                book = bookRepository.save(fromRequest(request, externalId));
+            } else {
+                JsonNode node = fetchBook(externalId);
+                preferredEpubUrl = pickEpubUrl(node);
+                book = bookRepository.save(fromGutendex(node, externalId));
+            }
+        }
 
         Optional<BookFile> existing = bookFileRepository.findByUserIdAndBookIdAndKind(
                 user.getId(), book.getId(), FileKind.EPUB);
@@ -73,7 +94,7 @@ public class BookService {
             return new ImportOutcome(toDetail(book, existing.get()), false);
         }
 
-        byte[] content = download(epubUrl);
+        byte[] content = downloadEpub(externalId, preferredEpubUrl);
         String sha256 = sha256(content);
         try {
             StorageService.StoredFile stored = storageService.store(user.getId(), sha256, "epub", content);
@@ -125,12 +146,56 @@ public class BookService {
         return ex.getStatusCode().value() == 404;
     }
 
-    private byte[] download(String url) {
-        byte[] content = gutendexClient.download(url);
-        if (content.length > MAX_FILE_BYTES) {
-            throw new ConflictException("El archivo supera el tamaño máximo permitido");
+    private byte[] downloadEpub(long externalId, String preferredUrl) {
+        List<String> candidates = new ArrayList<>();
+        if (preferredUrl != null && !preferredUrl.isBlank()) {
+            candidates.add(preferredUrl);
         }
-        return content;
+        String gutenberg = GutendexClient.GUTENBERG_BASE_URL + "/ebooks/" + externalId;
+        candidates.add(gutenberg + ".epub3.images");
+        candidates.add(gutenberg + ".epub.images");
+        candidates.add(gutenberg + ".epub.noimages");
+
+        RestClientException ioFailure = null;
+        boolean notFound = false;
+        boolean invalidContent = false;
+        for (String url : candidates.stream().distinct().toList()) {
+            try {
+                byte[] content = gutendexClient.download(url);
+                if (!looksLikeEpub(content)) {
+                    log.warn("Descarga que no parece un EPUB desde {}", url);
+                    invalidContent = true;
+                    continue;
+                }
+                if (content.length > MAX_FILE_BYTES) {
+                    throw new ConflictException("El archivo supera el tamaño máximo permitido");
+                }
+                return content;
+            } catch (HttpClientErrorException ex) {
+                if (!isNotFound(ex)) {
+                    throw ex;
+                }
+                notFound = true;
+            } catch (RestClientException ex) {
+                ioFailure = ex;
+            }
+        }
+        if (ioFailure != null) {
+            throw ioFailure;
+        }
+        if (notFound) {
+            throw new ConflictException("El libro no tiene un EPUB disponible en Project Gutenberg");
+        }
+        if (invalidContent) {
+            throw new ConflictException("Project Gutenberg devolvió un archivo que no es un EPUB válido");
+        }
+        throw new ConflictException("No se pudo obtener el EPUB desde Project Gutenberg");
+    }
+
+    private boolean looksLikeEpub(byte[] content) {
+        return content != null && content.length > 4
+                && content[0] == 'P' && content[1] == 'K'
+                && (content[2] == 3 || content[2] == 5 || content[2] == 7);
     }
 
     private BookSearchResult toSearchResult(JsonNode node) {
@@ -141,8 +206,31 @@ public class BookService {
                 authorNames(node),
                 firstOf(node.path("languages")),
                 formats.path("image/jpeg").asText(null),
+                cleanSummary(node),
                 node.path("download_count").asInt(0),
                 pickEpubUrl(node) != null);
+    }
+
+    private Book fromRequest(ImportBookRequest request, long externalId) {
+        Book book = new Book(request.title().trim(), GutendexClient.SOURCE, String.valueOf(externalId));
+        book.setLanguage(blankToNull(request.language()));
+        book.setCoverUrl(blankToNull(request.coverUrl()));
+        book.setDescription(blankToNull(request.description()));
+        if (request.authors() != null) {
+            request.authors().stream()
+                    .filter(author -> author != null && !author.isBlank())
+                    .map(String::trim)
+                    .forEach(book.getAuthors()::add);
+        }
+        return book;
+    }
+
+    private String blankToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private Book fromGutendex(JsonNode node, long externalId) {

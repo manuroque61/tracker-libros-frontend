@@ -8,6 +8,7 @@ public record BookSearchResult(
         List<String> authors,
         String language,
         String coverUrl,
+        String description,
         int downloadCount,
         boolean epubAvailable) {
 }

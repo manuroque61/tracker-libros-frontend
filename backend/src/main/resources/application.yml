@@ -37,8 +37,9 @@ app:
   external:
     gutendex-base-url: ${GUTENDEX_BASE_URL:https://gutendex.com}
     openlibrary-base-url: ${OPENLIBRARY_BASE_URL:https://openlibrary.org}
-    connect-timeout: 5s
-    read-timeout: 10s
+    connect-timeout: 3s
+    read-timeout: 6s
+    download-read-timeout: 60s
 management:
   endpoints:
     web:

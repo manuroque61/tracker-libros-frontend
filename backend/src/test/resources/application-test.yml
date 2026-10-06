@@ -24,3 +24,4 @@ app:
     openlibrary-base-url: https://openlibrary.org
     connect-timeout: 5s
     read-timeout: 15s
+    download-read-timeout: 60s

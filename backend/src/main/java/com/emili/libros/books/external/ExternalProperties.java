@@ -9,5 +9,6 @@ public record ExternalProperties(
         String gutendexBaseUrl,
         String openlibraryBaseUrl,
         Duration connectTimeout,
-        Duration readTimeout) {
+        Duration readTimeout,
+        Duration downloadReadTimeout) {
 }

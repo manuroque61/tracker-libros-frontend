@@ -3,11 +3,14 @@ package com.emili.libros.books.external;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
@@ -22,27 +25,25 @@ import java.util.function.Supplier;
 public class GutendexClient {
 
     public static final String SOURCE = "GUTENBERG";
+    public static final String GUTENBERG_BASE_URL = "https://www.gutenberg.org";
 
     private static final Logger log = LoggerFactory.getLogger(GutendexClient.class);
 
     private static final String USER_AGENT = "libros-tracker/1.0 (libre; contacto: localhost)";
-    private static final long RETRY_DELAY_MS = 300;
+    private static final int MAX_ATTEMPTS = 3;
+    private static final int MAX_DOWNLOAD_ATTEMPTS = 2;
+    private static final long BACKOFF_MS = 400;
 
     private final ExternalProperties properties;
     private final ObjectMapper objectMapper;
-    private final RestClient client;
+    private final RestClient metadataClient;
+    private final RestClient downloadClient;
 
     public GutendexClient(ExternalProperties properties, ObjectMapper objectMapper) {
         this.properties = properties;
         this.objectMapper = objectMapper;
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(properties.connectTimeout());
-        requestFactory.setReadTimeout(properties.readTimeout());
-        this.client = RestClient.builder()
-                .requestFactory(requestFactory)
-                .defaultHeader(HttpHeaders.USER_AGENT, USER_AGENT)
-                .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
-                .build();
+        this.metadataClient = buildClient(properties.connectTimeout(), properties.readTimeout());
+        this.downloadClient = buildClient(properties.connectTimeout(), properties.downloadReadTimeout());
     }
 
     public JsonNode search(String query, int page) {
@@ -57,7 +58,7 @@ public class GutendexClient {
     }
 
     public byte[] download(String url) {
-        byte[] body = withRetry(() -> client.get()
+        byte[] body = withRetry("descarga", MAX_DOWNLOAD_ATTEMPTS, () -> downloadClient.get()
                 .uri(URI.create(url))
                 .header(HttpHeaders.ACCEPT, MediaType.ALL_VALUE)
                 .retrieve()
@@ -72,7 +73,8 @@ public class GutendexClient {
         UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl);
         params.forEach((name, value) -> builder.queryParam(name, String.valueOf(value)));
         URI uri = builder.build().encode().toUri();
-        String body = withRetry(() -> client.get().uri(uri).retrieve().body(String.class));
+        String body = withRetry("metadatos", MAX_ATTEMPTS,
+                () -> metadataClient.get().uri(uri).retrieve().body(String.class));
         if (body == null) {
             throw new IllegalStateException("Respuesta vacía desde " + uri);
         }
@@ -83,18 +85,46 @@ public class GutendexClient {
         }
     }
 
-    private <T> T withRetry(Supplier<T> call) {
-        try {
-            return call.get();
-        } catch (ResourceAccessException first) {
-            log.warn("Falla de red contra el servicio externo, reintentando: {}", first.getMessage());
+    private static RestClient buildClient(java.time.Duration connectTimeout, java.time.Duration readTimeout) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(connectTimeout);
+        requestFactory.setReadTimeout(readTimeout);
+        return RestClient.builder()
+                .requestFactory(requestFactory)
+                .defaultHeader(HttpHeaders.USER_AGENT, USER_AGENT)
+                .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
+                .build();
+    }
+
+    private <T> T withRetry(String target, int maxAttempts, Supplier<T> call) {
+        RuntimeException last = null;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                Thread.sleep(RETRY_DELAY_MS);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                throw first;
+                return call.get();
+            } catch (ResourceAccessException ex) {
+                last = ex;
+                log.warn("Falla de red en {} (intento {}/{}): {}", target, attempt, maxAttempts, ex.getMessage());
+            } catch (HttpServerErrorException ex) {
+                last = ex;
+                log.warn("El servicio externo respondió {} en {} (intento {}/{}): {}",
+                        ex.getStatusCode(), target, attempt, maxAttempts, ex.getMessage());
+            } catch (HttpClientErrorException ex) {
+                if (ex.getStatusCode() != HttpStatus.TOO_MANY_REQUESTS) {
+                    throw ex;
+                }
+                last = ex;
+                log.warn("Límite de peticiones alcanzado en {} (intento {}/{}): {}",
+                        target, attempt, maxAttempts, ex.getMessage());
             }
-            return call.get();
+            if (attempt < maxAttempts) {
+                try {
+                    Thread.sleep(BACKOFF_MS * attempt);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw last;
+                }
+            }
         }
+        throw last;
     }
 }
