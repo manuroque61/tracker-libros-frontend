@@ -231,6 +231,10 @@ button.link {
   margin: 22px 0 6px;
 }
 
+.search-hint {
+  margin: 2px 0 0;
+}
+
 .search-form input {
   flex: 1;
 }

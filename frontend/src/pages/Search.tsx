@@ -12,20 +12,22 @@ export default function Search() {
   const [imported, setImported] = useState<number[]>([])
   const [busyId, setBusyId] = useState<number | null>(null)
 
+  const trimmedQuery = query.trim()
+  const tooShort = trimmedQuery.length > 0 && trimmedQuery.length < 3
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    const trimmed = query.trim()
-    if (!trimmed) return
+    if (!trimmedQuery || trimmedQuery.length < 3) return
 
     setLoading(true)
     setError(null)
     setNotice(null)
     try {
-      setResults(await api.search(trimmed))
+      setResults(await api.search(trimmedQuery))
     } catch (err) {
       const suffix =
         err instanceof ApiError && err.status === 502
-          ? ' El servicio de búsqueda tardó demasiado: volvé a intentar.'
+          ? ' El servicio de búsqueda tardó demasiado: probá con un título o autor más específico (ej. Austen, Verne) y volvé a intentar.'
           : ''
       setError(errorMessage(err) + suffix)
       setResults([])
@@ -69,11 +71,21 @@ export default function Search() {
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Título, autor o tema… por ejemplo: Austen"
           aria-label="Buscar libros"
+          minLength={3}
         />
-        <button type="submit" disabled={loading || !query.trim()}>
+        <button type="submit" disabled={loading || !trimmedQuery || trimmedQuery.length < 3}>
           {loading ? 'Buscando…' : 'Buscar'}
         </button>
       </form>
+      <p className="hint search-hint">
+        Escribí al menos 3 caracteres. Los términos muy cortos (ej. "hi") saturan la búsqueda;
+        usá un título o autor completo.
+      </p>
+      {tooShort && (
+        <p className="hint search-hint">
+          El término debe tener al menos 3 caracteres para buscar.
+        </p>
+      )}
 
       {error && <div className="alert">{error}</div>}
       {notice && (
