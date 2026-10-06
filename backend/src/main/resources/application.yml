@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: libros-tracker
+  profiles:
+    default: dev
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+  jackson:
+    default-property-inclusion: non_null
+server:
+  port: 8080
+  error:
+    include-message: always
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ORIGINS:http://localhost:5173}
+  storage:
+    root: ${APP_STORAGE_ROOT:./storage}
+  jwt:
+    secret: ${APP_JWT_SECRET:}
+    issuer: libros-tracker
+    access-token-ttl: PT12H
+  external:
+    gutendex-base-url: ${GUTENDEX_BASE_URL:https://gutendex.com}
+    openlibrary-base-url: ${OPENLIBRARY_BASE_URL:https://openlibrary.org}
+    connect-timeout: 5s
+    read-timeout: 15s
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+logging:
+  level:
+    com.emili.libros: INFO
+    org.hibernate.SQL: WARN
