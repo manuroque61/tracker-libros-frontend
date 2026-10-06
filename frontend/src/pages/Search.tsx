@@ -1,0 +1,126 @@
+import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
+import { api, errorMessage, type BookSearchResult } from '../api'
+import { BookCover } from '../components/BookCover'
+
+export default function Search() {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<BookSearchResult[] | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [imported, setImported] = useState<number[]>([])
+  const [busyId, setBusyId] = useState<number | null>(null)
+
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault()
+    const trimmed = query.trim()
+    if (!trimmed) return
+
+    setLoading(true)
+    setError(null)
+    setNotice(null)
+    try {
+      setResults(await api.search(trimmed))
+    } catch (err) {
+      setError(errorMessage(err))
+      setResults([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function importBook(externalId: number) {
+    setBusyId(externalId)
+    setError(null)
+    setNotice(null)
+    try {
+      await api.importBook(externalId)
+      setImported((previous) => [...previous, externalId])
+      setNotice('Libro guardado en tu biblioteca (Project Gutenberg, dominio público).')
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  return (
+    <section>
+      <header className="page-header">
+        <h1>Buscar libros libres</h1>
+        <p className="muted">
+          Resultados de Project Gutenberg: dominio público y descargas en EPUB, sin costo.
+        </p>
+      </header>
+
+      <form onSubmit={onSubmit} className="search-form">
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Título, autor o tema… por ejemplo: Austen"
+          aria-label="Buscar libros"
+        />
+        <button type="submit" disabled={loading || !query.trim()}>
+          {loading ? 'Buscando…' : 'Buscar'}
+        </button>
+      </form>
+
+      {error && <div className="alert">{error}</div>}
+      {notice && (
+        <div className="alert success">
+          {notice} <Link to="/biblioteca">Ir a la biblioteca</Link>
+        </div>
+      )}
+
+      {results !== null && results.length === 0 && !loading && (
+        <p className="muted">Sin resultados para esa búsqueda.</p>
+      )}
+
+      {results !== null && results.length > 0 && (
+        <ul className="grid">
+          {results.map((book) => {
+            const isImported = imported.includes(book.externalId)
+            return (
+              <li key={book.externalId} className="card">
+                <BookCover src={book.coverUrl} title={book.title} />
+                <div className="card-body">
+                  <h2>{book.title}</h2>
+                  <p className="authors">{book.authors.join(', ') || 'Autor desconocido'}</p>
+                  <p className="meta">
+                    {book.language && <span>{book.language.toUpperCase()}</span>}
+                    <span>{book.downloadCount.toLocaleString('es')} descargas</span>
+                  </p>
+                  <div className="card-actions">
+                    {isImported ? (
+                      <Link className="button secondary" to="/biblioteca">
+                        En biblioteca ✓
+                      </Link>
+                    ) : book.epubAvailable ? (
+                      <button
+                        type="button"
+                        onClick={() => void importBook(book.externalId)}
+                        disabled={busyId === book.externalId}
+                      >
+                        {busyId === book.externalId ? 'Guardando…' : 'Importar EPUB'}
+                      </button>
+                    ) : (
+                      <button type="button" disabled>
+                        Sin EPUB
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+
+      {results === null && !loading && (
+        <p className="muted placeholder">Escribí un título o autor para empezar a buscar.</p>
+      )}
+    </section>
+  )
+}
