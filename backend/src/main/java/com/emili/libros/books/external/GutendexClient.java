@@ -57,6 +57,13 @@ public class GutendexClient {
         return get(properties.gutendexBaseUrl() + "/books/" + externalId + "/", Map.of());
     }
 
+    public JsonNode popular(int page) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("sort", "popular");
+        params.put("page", page);
+        return get(properties.gutendexBaseUrl() + "/books/", params);
+    }
+
     public byte[] download(String url) {
         byte[] body = withRetry("descarga", MAX_DOWNLOAD_ATTEMPTS, () -> downloadClient.get()
                 .uri(URI.create(url))

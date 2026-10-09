@@ -3,13 +3,18 @@ package com.emili.libros.books;
 import com.emili.libros.books.dto.BookDetail;
 import com.emili.libros.books.dto.BookFileInfo;
 import com.emili.libros.books.dto.BookSearchResult;
+import com.emili.libros.books.dto.HomeResponse;
 import com.emili.libros.books.dto.ImportBookRequest;
+import com.emili.libros.books.dto.ReadingProgressRequest;
+import com.emili.libros.books.dto.ReadingProgressResponse;
+import com.emili.libros.books.dto.RecommendationResponse;
 import com.emili.libros.books.external.GutendexClient;
 import com.emili.libros.common.error.ConflictException;
 import com.emili.libros.common.error.NotFoundException;
 import com.emili.libros.users.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
@@ -21,9 +26,11 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class BookService {
@@ -31,20 +38,25 @@ public class BookService {
     private static final Logger log = LoggerFactory.getLogger(BookService.class);
 
     private static final int MAX_FILE_BYTES = 64 * 1024 * 1024;
+    private static final int CONTINUE_READING_LIMIT = 10;
+    private static final int RECOMMENDATION_LIMIT = 12;
 
     private final GutendexClient gutendexClient;
     private final BookRepository bookRepository;
     private final BookFileRepository bookFileRepository;
     private final StorageService storageService;
     private final SearchCache searchCache;
+    private final ReadingProgressRepository readingProgressRepository;
 
     public BookService(GutendexClient gutendexClient, BookRepository bookRepository,
-            BookFileRepository bookFileRepository, StorageService storageService, SearchCache searchCache) {
+            BookFileRepository bookFileRepository, StorageService storageService, SearchCache searchCache,
+            ReadingProgressRepository readingProgressRepository) {
         this.gutendexClient = gutendexClient;
         this.bookRepository = bookRepository;
         this.bookFileRepository = bookFileRepository;
         this.storageService = storageService;
         this.searchCache = searchCache;
+        this.readingProgressRepository = readingProgressRepository;
     }
 
     public List<BookSearchResult> search(String query, int page) {
@@ -129,6 +141,79 @@ public class BookService {
                 .filter(file -> file.getBook().getId().equals(bookId))
                 .filter(file -> file.getUser().getId().equals(user.getId()))
                 .orElseThrow(() -> new NotFoundException("Archivo no encontrado"));
+    }
+
+    @Transactional
+    public void updateProgress(User user, ReadingProgressRequest request) {
+        Book book = bookRepository.findById(request.bookId())
+                .orElseThrow(() -> new NotFoundException("Libro no encontrado"));
+        BookFile file = ownedFile(user, request.bookId(), request.fileId());
+        ReadingProgress progress = readingProgressRepository
+                .findByUserIdAndBookId(user.getId(), request.bookId())
+                .orElseGet(() -> new ReadingProgress(user, book, file));
+        progress.setBookFile(file);
+        progress.setProgressPercent(request.progressPercent());
+        progress.touch();
+        readingProgressRepository.save(progress);
+    }
+
+    @Transactional(readOnly = true)
+    public HomeResponse home(User user) {
+        List<ReadingProgressResponse> continueReading = readingProgressRepository
+                .findRecentByUserId(user.getId(), PageRequest.of(0, CONTINUE_READING_LIMIT))
+                .stream()
+                .map(this::toProgressResponse)
+                .toList();
+        return new HomeResponse(continueReading, recommendations(user));
+    }
+
+    private List<RecommendationResponse> recommendations(User user) {
+        Set<String> ownedExternalIds = new HashSet<>();
+        for (Book book : bookRepository.findAllByUserFile(user.getId())) {
+            if (book.getExternalId() != null) {
+                ownedExternalIds.add(book.getExternalId());
+            }
+        }
+
+        List<RecommendationResponse> recommendations = new ArrayList<>();
+        try {
+            JsonNode root = gutendexClient.popular(1);
+            for (JsonNode node : root.path("results")) {
+                if (recommendations.size() >= RECOMMENDATION_LIMIT) {
+                    break;
+                }
+                BookSearchResult result = toSearchResult(node);
+                if (!result.epubAvailable() || ownedExternalIds.contains(String.valueOf(result.externalId()))) {
+                    continue;
+                }
+                recommendations.add(new RecommendationResponse(
+                        result.externalId(),
+                        result.title(),
+                        result.authors(),
+                        result.language(),
+                        result.coverUrl(),
+                        result.description(),
+                        result.epubAvailable()));
+            }
+        } catch (RestClientException ex) {
+            log.warn("No se pudieron obtener recomendaciones de Project Gutenberg: {}", ex.getMessage());
+        }
+        return recommendations;
+    }
+
+    private ReadingProgressResponse toProgressResponse(ReadingProgress progress) {
+        Book book = progress.getBook();
+        BookFile file = progress.getBookFile();
+        return new ReadingProgressResponse(
+                book.getId(),
+                book.getTitle(),
+                List.copyOf(book.getAuthors()),
+                book.getCoverUrl(),
+                book.getDescription(),
+                book.getLanguage(),
+                progress.getProgressPercent(),
+                file == null ? null : file.getId(),
+                progress.getLastReadAt());
     }
 
     private JsonNode fetchBook(long externalId) {

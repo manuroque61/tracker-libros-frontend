@@ -2,7 +2,9 @@ package com.emili.libros.books;
 
 import com.emili.libros.books.dto.BookDetail;
 import com.emili.libros.books.dto.BookSearchResult;
+import com.emili.libros.books.dto.HomeResponse;
 import com.emili.libros.books.dto.ImportBookRequest;
+import com.emili.libros.books.dto.ReadingProgressRequest;
 import com.emili.libros.common.error.BadRequestException;
 import com.emili.libros.common.error.NotFoundException;
 import com.emili.libros.common.security.CurrentUser;
@@ -20,6 +22,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -100,4 +103,19 @@ public class BookController {
             throw ex;
         }
     }
+
+    @PutMapping("/progress")
+    public ResponseEntity<Void> updateProgress(@Valid @RequestBody ReadingProgressRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        User user = currentUser.require(jwt);
+        bookService.updateProgress(user, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/home")
+    public HomeResponse home(@AuthenticationPrincipal Jwt jwt) {
+        User user = currentUser.require(jwt);
+        return bookService.home(user);
+    }
 }
+
