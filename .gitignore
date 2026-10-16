@@ -7,11 +7,8 @@ frontend/*.tsbuildinfo
 frontend/coverage/
 frontend/.eslintcache
 
-# Maven / Spring
-backend/target/
-backend/.mvn/wrapper/maven-wrapper.jar
-backend/.idea/
-backend/*.iml
+# Backend (vive en el repo tracker-libros-backend; se conserva local pero no se trackea)
+backend/
 
 # App data / storage
 data/
