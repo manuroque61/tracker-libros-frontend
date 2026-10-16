@@ -12,6 +12,7 @@ public record ReadingProgressRequest(
         @NotNull
         UUID fileId,
         @DecimalMin("0.0") @DecimalMax("100.0")
-        Double progressPercent
+        Double progressPercent,
+        String locationCfi
 ) {
 }

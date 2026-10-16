@@ -19,6 +19,7 @@ export interface BookSearchResult {
   language?: string
   coverUrl?: string
   description?: string
+  sourceDescription?: string
   downloadCount: number
   epubAvailable: boolean
 }
@@ -42,6 +43,48 @@ export interface BookDetail {
   source: string
   externalId?: string
   files: BookFileInfo[]
+  progressPercent?: number | null
+  lastReadAt?: string | null
+  fileId?: string | null
+}
+
+export interface ReadingProgress {
+  bookId: string
+  title: string
+  authors: string[]
+  coverUrl?: string
+  description?: string
+  language?: string
+  progressPercent?: number
+  locationCfi?: string
+  fileId?: string
+  lastReadAt: string
+}
+
+export interface Recommendation {
+  externalId: number
+  title: string
+  authors: string[]
+  language?: string
+  coverUrl?: string
+  description?: string
+  sourceDescription?: string
+  epubAvailable: boolean
+}
+
+export interface Genre {
+  slug: string
+  label: string
+}
+
+export interface RecommendationsResponse {
+  genres: Genre[]
+  items: Recommendation[]
+  hasMore: boolean
+}
+
+export interface HomeResponse {
+  continueReading: ReadingProgress[]
 }
 
 const TOKEN_KEY = 'libros-tracker.token'
@@ -130,8 +173,12 @@ export const api = {
 
   me: () => request<UserResponse>('/api/auth/me'),
 
-  search: async (query: string, page = 1) => {
-    const path = `/api/books/search?q=${encodeURIComponent(query)}&page=${page}`
+  search: async (query: string, topic?: string | null, page = 1, language?: string) => {
+    const params = new URLSearchParams({ page: String(page) })
+    if (query.trim()) params.set('q', query.trim())
+    if (topic) params.set('topic', topic)
+    if (language) params.set('language', language)
+    const path = `/api/books/search?${params.toString()}`
     try {
       return await request<BookSearchResult[]>(path)
     } catch (error) {
@@ -143,6 +190,13 @@ export const api = {
     }
   },
 
+  recommendations: (offset = 0, limit = 4, genres: string[] = [], language?: string) => {
+    const params = new URLSearchParams({ offset: String(offset), limit: String(limit) })
+    for (const genre of genres) params.append('genres', genre)
+    if (language) params.set('language', language)
+    return request<RecommendationsResponse>(`/api/books/recommendations?${params.toString()}`)
+  },
+
   importBook: (book: BookSearchResult) =>
     request<BookDetail>('/api/books/import', {
       method: 'POST',
@@ -152,11 +206,31 @@ export const api = {
         authors: book.authors,
         language: book.language,
         coverUrl: book.coverUrl,
-        description: book.description,
+        description: book.sourceDescription ?? book.description,
       }),
     }),
 
   library: () => request<BookDetail[]>('/api/books'),
+
+  home: () => request<HomeResponse>('/api/books/home'),
+
+  async getProgress(bookId: string): Promise<ReadingProgress | null> {
+    const progress = await request<ReadingProgress | undefined>(`/api/books/${bookId}/progress`)
+    return progress ?? null
+  },
+
+  saveProgress: (
+    bookId: string,
+    fileId: string,
+    progressPercent: number,
+    locationCfi: string | null,
+    keepalive = false,
+  ) =>
+    request<void>('/api/books/progress', {
+      method: 'PUT',
+      body: JSON.stringify({ bookId, fileId, progressPercent, locationCfi }),
+      keepalive,
+    }),
 
   async getFile(bookId: string, fileId: string): Promise<{ blob: Blob; filename: string }> {
     const res = await fetch(`/api/books/${bookId}/files/${fileId}`, { headers: authHeaders() })

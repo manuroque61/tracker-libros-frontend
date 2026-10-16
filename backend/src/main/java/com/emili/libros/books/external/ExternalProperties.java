@@ -8,7 +8,9 @@ import java.time.Duration;
 public record ExternalProperties(
         String gutendexBaseUrl,
         String openlibraryBaseUrl,
+        String languages,
         Duration connectTimeout,
         Duration readTimeout,
-        Duration downloadReadTimeout) {
+        Duration downloadReadTimeout,
+        Duration recommendationReadTimeout) {
 }

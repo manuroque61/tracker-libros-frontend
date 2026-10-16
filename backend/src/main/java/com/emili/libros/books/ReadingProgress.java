@@ -41,6 +41,9 @@ public class ReadingProgress {
     @Column(name = "progress_percent")
     private Double progressPercent;
 
+    @Column(name = "location_cfi", length = 512)
+    private String locationCfi;
+
     @Column(name = "last_read_at", nullable = false)
     private Instant lastReadAt;
 
@@ -107,6 +110,14 @@ public class ReadingProgress {
 
     public void setProgressPercent(Double progressPercent) {
         this.progressPercent = progressPercent;
+    }
+
+    public String getLocationCfi() {
+        return locationCfi;
+    }
+
+    public void setLocationCfi(String locationCfi) {
+        this.locationCfi = locationCfi;
     }
 
     public void touch() {

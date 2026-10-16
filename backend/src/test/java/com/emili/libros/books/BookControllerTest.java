@@ -21,6 +21,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -31,6 +32,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -75,6 +77,9 @@ class BookControllerTest {
     private BookFileRepository bookFileRepository;
 
     @Autowired
+    private ReadingProgressRepository readingProgressRepository;
+
+    @Autowired
     private UserRepository userRepository;
 
     @Autowired
@@ -87,6 +92,7 @@ class BookControllerTest {
 
     @BeforeEach
     void setUp() throws Exception {
+        readingProgressRepository.deleteAll();
         bookFileRepository.deleteAll();
         bookRepository.deleteAll();
         userRepository.deleteAll();
@@ -117,7 +123,8 @@ class BookControllerTest {
 
     @Test
     void searchMapsGutendexResults() throws Exception {
-        when(gutendexClient.search(eq("frankenstein"), anyInt())).thenReturn(objectMapper.readTree(SEARCH_JSON));
+        when(gutendexClient.search(eq("frankenstein"), any(), anyInt(), any()))
+                .thenReturn(objectMapper.readTree(SEARCH_JSON));
 
         mockMvc.perform(get("/api/books/search")
                         .param("q", "frankenstein")
@@ -245,6 +252,40 @@ class BookControllerTest {
     }
 
     @Test
+    void listOrdersByLastReadAndIncludesProgress() throws Exception {
+        // Contenido distinto por libro para no colisionar con el UNIQUE de storage_path.
+        when(gutendexClient.download(anyString())).thenAnswer(invocation -> {
+            String url = invocation.getArgument(0);
+            return url.contains("/85.") ? new byte[] {'P', 'K', 3, 4, 5, 6, 7, 8} : EPUB_BYTES;
+        });
+
+        JsonNode bookA = importWithMetadata(84, "Libro A");
+        JsonNode bookB = importWithMetadata(85, "Libro B");
+        UUID bookAId = UUID.fromString(bookA.get("id").asText());
+        UUID bookAFile = UUID.fromString(bookA.get("files").get(0).get("id").asText());
+        String bookBId = bookB.get("id").asText();
+
+        // "Libro B" se importa después, así que sin progreso aparecería primero por fecha.
+        // Al registrar progreso en "Libro A", este debe pasar al frente.
+        mockMvc.perform(put("/api/books/progress")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"bookId":"%s","fileId":"%s","progressPercent":42.0,"locationCfi":"epubcfi(/6/4!/2/2)"}
+                                """.formatted(bookAId, bookAFile))
+                        .header("Authorization", bearer()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/books").header("Authorization", bearer()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(bookAId.toString()))
+                .andExpect(jsonPath("$[0].progressPercent").value(42.0))
+                .andExpect(jsonPath("$[0].fileId").value(bookAFile.toString()))
+                .andExpect(jsonPath("$[0].lastReadAt").exists())
+                .andExpect(jsonPath("$[1].id").value(bookBId))
+                .andExpect(jsonPath("$[1].progressPercent").doesNotExist());
+    }
+
+    @Test
     void unknownPathReturnsNotFound() throws Exception {
         mockMvc.perform(get("/api/ruta-que-no-existe").header("Authorization", bearer()))
                 .andExpect(status().isNotFound())
@@ -253,7 +294,7 @@ class BookControllerTest {
 
     @Test
     void searchResultsAreCached() throws Exception {
-        when(gutendexClient.search(anyString(), anyInt())).thenReturn(objectMapper.readTree(SEARCH_JSON));
+        when(gutendexClient.search(anyString(), any(), anyInt(), any())).thenReturn(objectMapper.readTree(SEARCH_JSON));
 
         mockMvc.perform(get("/api/books/search").param("q", "Tolkien").header("Authorization", bearer()))
                 .andExpect(status().isOk())
@@ -263,7 +304,7 @@ class BookControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].externalId").value(84));
 
-        verify(gutendexClient, times(1)).search(anyString(), anyInt());
+        verify(gutendexClient, times(1)).search(anyString(), any(), anyInt(), any());
     }
 
     @Test
@@ -290,6 +331,17 @@ class BookControllerTest {
 
     private void stubBook() throws Exception {
         when(gutendexClient.book(84)).thenReturn(objectMapper.readTree(BOOK_JSON));
+    }
+
+    private JsonNode importWithMetadata(long externalId, String title) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/books/import")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"externalId\":%d,\"title\":\"%s\",\"authors\":[],\"language\":\"en\"}"
+                                .formatted(externalId, title))
+                        .header("Authorization", bearer()))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return objectMapper.readTree(result.getResponse().getContentAsString());
     }
 
     private String register(String username, String email) throws Exception {

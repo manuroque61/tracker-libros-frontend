@@ -9,6 +9,7 @@ public record RecommendationResponse(
         String language,
         String coverUrl,
         String description,
+        String sourceDescription,
         boolean epubAvailable
 ) {
 }

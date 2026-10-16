@@ -12,6 +12,7 @@ public record ReadingProgressResponse(
         String description,
         String language,
         Double progressPercent,
+        String locationCfi,
         UUID fileId,
         Instant lastReadAt
 ) {

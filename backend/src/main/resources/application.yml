@@ -37,9 +37,18 @@ app:
   external:
     gutendex-base-url: ${GUTENDEX_BASE_URL:https://gutendex.com}
     openlibrary-base-url: ${OPENLIBRARY_BASE_URL:https://openlibrary.org}
+    languages: ${APP_CATALOG_LANGUAGES:es}
     connect-timeout: 3s
     read-timeout: 6s
     download-read-timeout: 60s
+    recommendation-read-timeout: 3s
+  translation:
+    enabled: ${APP_TRANSLATION_ENABLED:true}
+    base-url: ${TRANSLATION_BASE_URL:https://translate.googleapis.com}
+    source-language: en
+    target-language: es
+    connect-timeout: 3s
+    read-timeout: 5s
 management:
   endpoints:
     web:

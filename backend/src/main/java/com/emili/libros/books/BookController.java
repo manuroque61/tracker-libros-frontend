@@ -2,9 +2,12 @@ package com.emili.libros.books;
 
 import com.emili.libros.books.dto.BookDetail;
 import com.emili.libros.books.dto.BookSearchResult;
+import com.emili.libros.books.dto.GenreResponse;
 import com.emili.libros.books.dto.HomeResponse;
 import com.emili.libros.books.dto.ImportBookRequest;
 import com.emili.libros.books.dto.ReadingProgressRequest;
+import com.emili.libros.books.dto.ReadingProgressResponse;
+import com.emili.libros.books.dto.RecommendationsResponse;
 import com.emili.libros.common.error.BadRequestException;
 import com.emili.libros.common.error.NotFoundException;
 import com.emili.libros.common.security.CurrentUser;
@@ -51,12 +54,37 @@ public class BookController {
     }
 
     @GetMapping("/search")
-    public List<BookSearchResult> search(@RequestParam String q,
-            @RequestParam(defaultValue = "1") int page) {
-        if (q == null || q.isBlank()) {
-            throw new BadRequestException("El parámetro q es obligatorio");
+    public List<BookSearchResult> search(@RequestParam(required = false) String q,
+            @RequestParam(required = false) String topic,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(required = false) String language) {
+        String query = q == null ? null : q.trim();
+        String genre = topic == null ? null : topic.trim();
+        boolean hasQuery = query != null && !query.isBlank();
+        boolean hasTopic = genre != null && !genre.isBlank();
+        if (!hasQuery && !hasTopic) {
+            throw new BadRequestException("Indicá un término de búsqueda o un género");
         }
-        return bookService.search(q.trim(), Math.max(page, 1));
+        return bookService.search(hasQuery ? query : null, hasTopic ? genre : null, Math.max(page, 1), normalizeLanguage(language));
+    }
+
+    @GetMapping("/genres")
+    public List<GenreResponse> genres() {
+        return Genres.ALL.stream()
+                .map(genre -> new GenreResponse(genre.slug(), genre.label()))
+                .toList();
+    }
+
+    @GetMapping("/recommendations")
+    public RecommendationsResponse recommendations(
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "4") int limit,
+            @RequestParam(required = false) List<String> genres,
+            @RequestParam(required = false) String language,
+            @AuthenticationPrincipal Jwt jwt) {
+        User user = currentUser.require(jwt);
+        return bookService.recommendations(user, Math.max(offset, 0), Math.max(limit, 1), genres,
+                normalizeLanguage(language));
     }
 
     @PostMapping("/import")
@@ -112,10 +140,34 @@ public class BookController {
         return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/{bookId}/progress")
+    public ResponseEntity<ReadingProgressResponse> progress(@PathVariable UUID bookId,
+            @AuthenticationPrincipal Jwt jwt) {
+        User user = currentUser.require(jwt);
+        return bookService.progress(user, bookId)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
     @GetMapping("/home")
     public HomeResponse home(@AuthenticationPrincipal Jwt jwt) {
         User user = currentUser.require(jwt);
         return bookService.home(user);
+    }
+
+    /**
+     * Normaliza el idioma elegido en la interfaz: vacío o "all" significa sin filtro.
+     * Devuelve null cuando hay que usar el idioma configurado por defecto.
+     */
+    private static String normalizeLanguage(String language) {
+        if (language == null) {
+            return null;
+        }
+        String value = language.trim();
+        if (value.isEmpty() || value.equalsIgnoreCase("all")) {
+            return "all";
+        }
+        return value;
     }
 }
 

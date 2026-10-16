@@ -17,7 +17,18 @@ public class SearchCache {
     private final Map<String, Entry> entries = new ConcurrentHashMap<>();
 
     public static String key(String query, int page) {
-        return query.trim().toLowerCase(Locale.ROOT) + "|" + page;
+        return key(query, null, page, null);
+    }
+
+    public static String key(String query, String topic, int page) {
+        return key(query, topic, page, null);
+    }
+
+    public static String key(String query, String topic, int page, String language) {
+        String normalizedQuery = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        String normalizedTopic = topic == null ? "" : topic.trim().toLowerCase(Locale.ROOT);
+        String normalizedLanguage = language == null ? "" : language.trim().toLowerCase(Locale.ROOT);
+        return normalizedQuery + "|" + normalizedTopic + "|" + normalizedLanguage + "|" + page;
     }
 
     public List<BookSearchResult> get(String key) {

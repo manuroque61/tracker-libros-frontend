@@ -38,30 +38,76 @@ public class GutendexClient {
     private final ObjectMapper objectMapper;
     private final RestClient metadataClient;
     private final RestClient downloadClient;
+    private final RestClient recommendationClient;
 
     public GutendexClient(ExternalProperties properties, ObjectMapper objectMapper) {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.metadataClient = buildClient(properties.connectTimeout(), properties.readTimeout());
         this.downloadClient = buildClient(properties.connectTimeout(), properties.downloadReadTimeout());
+        this.recommendationClient = buildClient(properties.connectTimeout(), properties.recommendationReadTimeout());
     }
 
-    public JsonNode search(String query, int page) {
+    public JsonNode search(String query, int page, String language) {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("search", query);
+        applyLanguage(params, language);
         params.put("page", page);
         return get(properties.gutendexBaseUrl() + "/books/", params);
+    }
+
+    public JsonNode search(String query, String topic, int page, String language) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        if (query != null && !query.isBlank()) {
+            params.put("search", query.trim());
+        }
+        if (topic != null && !topic.isBlank()) {
+            params.put("topic", topic.trim());
+        }
+        applyLanguage(params, language);
+        params.put("page", page);
+        return get(properties.gutendexBaseUrl() + "/books/", params);
+    }
+
+    /**
+     * Libros populares de un género (topic). Usa un timeout corto y sin reintentos
+     * para no demorar la carga del inicio cuando el servicio externo está lento.
+     */
+    public JsonNode topicPopular(String topic, int page, String language) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("topic", topic);
+        params.put("sort", "popular");
+        applyLanguage(params, language);
+        params.put("page", page);
+        return get(recommendationClient, 1, "populares", properties.gutendexBaseUrl() + "/books/", params);
+    }
+
+    /**
+     * Libros más populares del catálogo en el idioma indicado (sin género). Se usa
+     * como respaldo cuando ningún género tiene resultados en ese idioma.
+     */
+    public JsonNode popularByLanguage(int page, String language) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("sort", "popular");
+        applyLanguage(params, language);
+        params.put("page", page);
+        return get(recommendationClient, 1, "populares", properties.gutendexBaseUrl() + "/books/", params);
+    }
+
+    /**
+     * Resuelve el idioma a usar: si viene uno explícito se respeta (el valor "all"
+     * o vacío quita el filtro); si no viene ninguno, se usa el configurado.
+     */
+    private void applyLanguage(Map<String, Object> params, String language) {
+        String chosen = language != null ? language : properties.languages();
+        if (chosen == null || chosen.isBlank() || chosen.equalsIgnoreCase("all")) {
+            return;
+        }
+        params.put("languages", chosen.trim());
     }
 
     public JsonNode book(long externalId) {
         return get(properties.gutendexBaseUrl() + "/books/" + externalId + "/", Map.of());
-    }
-
-    public JsonNode popular(int page) {
-        Map<String, Object> params = new LinkedHashMap<>();
-        params.put("sort", "popular");
-        params.put("page", page);
-        return get(properties.gutendexBaseUrl() + "/books/", params);
     }
 
     public byte[] download(String url) {
@@ -77,11 +123,16 @@ public class GutendexClient {
     }
 
     private JsonNode get(String baseUrl, Map<String, Object> params) {
+        return get(metadataClient, MAX_ATTEMPTS, "metadatos", baseUrl, params);
+    }
+
+    private JsonNode get(RestClient client, int maxAttempts, String target, String baseUrl,
+            Map<String, Object> params) {
         UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl);
         params.forEach((name, value) -> builder.queryParam(name, String.valueOf(value)));
         URI uri = builder.build().encode().toUri();
-        String body = withRetry("metadatos", MAX_ATTEMPTS,
-                () -> metadataClient.get().uri(uri).retrieve().body(String.class));
+        String body = withRetry(target, maxAttempts,
+                () -> client.get().uri(uri).retrieve().body(String.class));
         if (body == null) {
             throw new IllegalStateException("Respuesta vacía desde " + uri);
         }

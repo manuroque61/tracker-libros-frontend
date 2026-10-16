@@ -18,7 +18,7 @@ export default function Register() {
     setLoading(true)
     try {
       await register(username, email, password)
-      navigate('/buscar', { replace: true })
+      navigate('/inicio', { replace: true })
     } catch (err) {
       setError(errorMessage(err))
     } finally {

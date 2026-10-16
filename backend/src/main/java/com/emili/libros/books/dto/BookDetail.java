@@ -1,5 +1,6 @@
 package com.emili.libros.books.dto;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -12,5 +13,8 @@ public record BookDetail(
         String coverUrl,
         String source,
         String externalId,
-        List<BookFileInfo> files) {
+        List<BookFileInfo> files,
+        Double progressPercent,
+        Instant lastReadAt,
+        UUID fileId) {
 }

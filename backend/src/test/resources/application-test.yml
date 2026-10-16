@@ -22,6 +22,15 @@ app:
   external:
     gutendex-base-url: https://gutendex.com
     openlibrary-base-url: https://openlibrary.org
+    languages: es
     connect-timeout: 5s
     read-timeout: 15s
     download-read-timeout: 60s
+    recommendation-read-timeout: 5s
+  translation:
+    enabled: false
+    base-url: https://translate.googleapis.com
+    source-language: en
+    target-language: es
+    connect-timeout: 5s
+    read-timeout: 5s

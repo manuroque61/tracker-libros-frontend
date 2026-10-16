@@ -10,19 +10,24 @@ export function BookCover({ src, title }: BookCoverProps) {
 
   if (!src || failed) {
     return (
-      <div className="cover-fallback" aria-hidden="true">
-        <span>{title}</span>
+      <div className="cover-wrap">
+        <div className="cover-fallback" aria-hidden="true">
+          <span className="cover-fallback-title">{title}</span>
+          <span className="cover-fallback-mark">Libros Tracker</span>
+        </div>
       </div>
     )
   }
 
   return (
-    <img
-      className="cover"
-      src={src}
-      alt={title}
-      loading="lazy"
-      onError={() => setFailed(true)}
-    />
+    <div className="cover-wrap">
+      <img
+        className="cover"
+        src={src}
+        alt={title}
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    </div>
   )
 }

@@ -17,7 +17,7 @@ export default function Login() {
     setLoading(true)
     try {
       await login(username, password)
-      navigate('/buscar', { replace: true })
+      navigate('/inicio', { replace: true })
     } catch (err) {
       setError(errorMessage(err))
     } finally {

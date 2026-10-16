@@ -8,6 +8,10 @@ function formatSize(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
+function clampPercent(value: number): number {
+  return Math.min(100, Math.max(0, value))
+}
+
 export default function Library() {
   const navigate = useNavigate()
   const [books, setBooks] = useState<BookDetail[] | null>(null)
@@ -83,6 +87,20 @@ export default function Library() {
               <div className="card-body">
                 <h2>{book.title}</h2>
                 <p className="authors">{book.authors.join(', ') || 'Autor desconocido'}</p>
+                {typeof book.progressPercent === 'number' && (
+                  <div className="book-progress">
+                    <span className="book-progress-track">
+                      <span
+                        className="book-progress-fill"
+                        style={{ width: `${clampPercent(book.progressPercent)}%` }}
+                      />
+                    </span>
+                    <span className="book-progress-label">
+                      {Math.round(clampPercent(book.progressPercent))}% leído
+                      {book.lastReadAt && ` · Última lectura ${new Date(book.lastReadAt).toLocaleDateString()}`}
+                    </span>
+                  </div>
+                )}
                 {book.description && <p className="description">{book.description}</p>}
                 <ul className="files">
                   {book.files.map((file) => (
@@ -98,7 +116,7 @@ export default function Library() {
                               navigate(`/leer/${book.id}/${file.id}`, { state: { title: book.title } })
                             }
                           >
-                            Leer
+                            {book.fileId === file.id ? 'Continuar' : 'Leer'}
                           </button>
                         )}
                         <button

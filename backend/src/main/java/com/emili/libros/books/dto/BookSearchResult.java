@@ -9,6 +9,7 @@ public record BookSearchResult(
         String language,
         String coverUrl,
         String description,
+        String sourceDescription,
         int downloadCount,
         boolean epubAvailable) {
 }

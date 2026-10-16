@@ -13,6 +13,8 @@ public interface ReadingProgressRepository extends JpaRepository<ReadingProgress
 
     Optional<ReadingProgress> findByUserIdAndBookId(UUID userId, UUID bookId);
 
+    List<ReadingProgress> findByUserId(UUID userId);
+
     @Query("SELECT rp FROM ReadingProgress rp JOIN FETCH rp.book b LEFT JOIN FETCH b.authors WHERE rp.user.id = :userId ORDER BY rp.lastReadAt DESC")
     List<ReadingProgress> findRecentByUserId(@Param("userId") UUID userId, Pageable pageable);
 }
