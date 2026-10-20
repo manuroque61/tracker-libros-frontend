@@ -1,5 +1,8 @@
+import { getToken, setToken } from './authToken'
+
 const STATUS_MESSAGES: Record<number, string> = {
   400: 'La solicitud no es válida.',
+  401: 'Email o contraseña incorrectos.',
   404: 'No se encontró el recurso solicitado.',
   409: 'El recurso ya existe.',
   500: 'Ocurrió un error en el servidor.',
@@ -27,6 +30,7 @@ export function errorMessage(error: unknown): string {
  * pasan por aquí; en desarrollo Vite proxya `/api` hacia http://localhost:8080.
  */
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = getToken()
   let res: Response
   try {
     res = await fetch(path, {
@@ -34,6 +38,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
       headers: {
         Accept: 'application/json',
         ...(init.body != null ? { 'Content-Type': 'application/json' } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(init.headers ?? {}),
       },
     })
@@ -52,6 +57,11 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     if (body.message) message = body.message
   } catch {
     /* respuesta sin cuerpo JSON */
+  }
+
+  if (res.status === 401 && token) {
+    setToken(null)
+    window.dispatchEvent(new Event('libros:unauthorized'))
   }
 
   throw new ApiError(res.status, message)

@@ -1,3 +1,17 @@
+export interface Usuario {
+  id: number
+  nombre: string
+  email: string
+  fechaRegistro: string
+}
+
+export interface AuthResponse {
+  accessToken: string
+  tokenType: string
+  expiresIn: number
+  usuario: Usuario
+}
+
 export type FormatoLectura = 'FISICO' | 'PDF' | 'EPUB'
 
 export type EstadoLectura = 'PENDIENTE' | 'LEYENDO' | 'PAUSADO' | 'TERMINADO' | 'ABANDONADO'
