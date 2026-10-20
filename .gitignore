@@ -1,11 +1,11 @@
 # Node / Vite
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
-frontend/.turbo/
-frontend/*.tsbuildinfo
-frontend/coverage/
-frontend/.eslintcache
+node_modules/
+dist/
+.vite/
+.turbo/
+*.tsbuildinfo
+coverage/
+.eslintcache
 
 # Backend (vive en el repo tracker-libros-backend; se conserva local pero no se trackea)
 backend/
