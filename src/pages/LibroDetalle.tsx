@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AnotacionPanel } from '../components/AnotacionPanel'
 import { BookCover } from '../components/BookCover'
 import { Progreso } from '../components/Progreso'
+import { ResenaLibro } from '../components/ResenaLibro'
 import { useAsync } from '../hooks/useAsync'
 import { errorMessage } from '../services/apiClient'
 import { listarPorLibro as listarArchivos } from '../services/archivosApi'
@@ -145,6 +146,8 @@ export default function LibroDetalle() {
           </div>
         </div>
       </header>
+
+      <ResenaLibro key={libro.id} libroId={libro.id} />
 
       <h2 className="home-heading">Lecturas</h2>
       {lecturas.length === 0 && <p className="muted">Este libro todavía no tiene lecturas registradas.</p>}

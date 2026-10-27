@@ -107,6 +107,13 @@ export interface Anotacion {
   creadoEn: string
 }
 
+export interface Resena {
+  libroId: string
+  estrellas: number
+  texto: string
+  actualizadoEn: string
+}
+
 /** Respuesta del endpoint real GET /api/libros/buscar-isbn/{isbn} (LibroExternoDTO). */
 export interface LibroExterno {
   isbn: string

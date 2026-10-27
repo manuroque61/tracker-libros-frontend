@@ -1,11 +1,15 @@
 import { useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { LibroCard } from '../components/LibroCard'
+import { Recomendaciones } from '../components/Recomendaciones'
+import { Recordatorios } from '../components/Recordatorios'
 import { useAsync } from '../hooks/useAsync'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { listarLibros } from '../services/librosApi'
 import { listarTodas } from '../services/lecturasApi'
-import type { EstadoLectura, FormatoLectura, Lectura, Libro } from '../types'
+import { recomendarLibros } from '../services/recomendaciones'
+import { listarResenas } from '../services/resenasApi'
+import type { EstadoLectura, FormatoLectura, Lectura, Libro, Resena } from '../types'
 import { ESTADOS, ESTADO_LABEL, FORMATOS, FORMATO_LABEL } from '../types'
 
 type FiltroFormato = 'TODOS' | FormatoLectura
@@ -14,12 +18,13 @@ type FiltroEstado = 'TODOS' | EstadoLectura
 interface BibliotecaData {
   libros: Libro[]
   lecturas: Lectura[]
+  resenas: Resena[]
 }
 
 export default function Biblioteca() {
   const loader = useCallback(async (): Promise<BibliotecaData> => {
     const [libros, lecturas] = await Promise.all([listarLibros(), listarTodas()])
-    return { libros, lecturas }
+    return { libros, lecturas, resenas: listarResenas() }
   }, [])
   const { data, loading, error, reload } = useAsync(loader)
 
@@ -29,6 +34,7 @@ export default function Biblioteca() {
 
   const libros = data?.libros ?? []
   const lecturas = data?.lecturas ?? []
+  const resenas = data?.resenas ?? []
   const lecturasDe = (libroId: string) => lecturas.filter((lectura) => lectura.libroId === libroId)
 
   const termino = query.trim().toLowerCase()
@@ -50,6 +56,13 @@ export default function Biblioteca() {
           Una sola biblioteca para libros físicos y digitales. Filtrá por formato, estado o buscá por título y autor.
         </p>
       </header>
+
+      {!loading && !error && (
+        <>
+          <Recordatorios libros={libros} lecturas={lecturas} />
+          <Recomendaciones items={recomendarLibros(libros, lecturas, resenas)} />
+        </>
+      )}
 
       <div className="biblioteca-toolbar">
         <input
