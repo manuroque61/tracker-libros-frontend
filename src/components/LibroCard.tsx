@@ -31,6 +31,11 @@ export function LibroCard({ libro, lecturas }: LibroCardProps) {
         </p>
         {lecturas.length > 0 && <Progreso value={progreso} label={`${Math.round(progreso)}%`} />}
         <div className="card-actions">
+          {formatos.some((formato) => formato !== 'FISICO') && (
+            <Link className="button secondary" to={`/leer/${libro.id}`}>
+              Leer en línea
+            </Link>
+          )}
           <Link className="button secondary" to={`/libro/${libro.id}`}>
             Ver detalle
           </Link>

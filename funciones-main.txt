@@ -1,0 +1,101 @@
+FUNCIONES A AGREGAR A MAIN
+Actualizado: 21/10/2026
+==========================================================
+QUE ES EL PROYECTO
+------------------
+Un tracker de libros fisicos y digitales con lector de PDF y
+EPUB, busqueda por ISBN, catalogo externo y estadisticas.
+Este documento es una lista de trabajo: todo lo de abajo
+todavia no esta en main.
+==========================================================
+1. FUNCIONES YA RESUELTAS, PENDIENTES DE INTEGRAR
+==========================================================
+1.1 Recomendaciones por genero e idioma
+---------------------------------------
+Sugiere libros nuevos segun el genero y el idioma que elige
+el usuario. Los resultados se piden de a paginas y se guardan
+en cache para no consultar la fuente externa todo el tiempo.
+1.2 Pantalla de inicio con feed
+-------------------------------
+Muestra en un solo lugar los libros que el usuario esta
+leyendo y las recomendaciones del momento, para retomar la
+lectura rapido.
+1.3 Importar un libro con descarga automatica
+---------------------------------------------
+Al elegir un libro del catalogo, busca su version EPUB en
+Gutenberg, la descarga y la guarda en el almacenamiento. Si el
+archivo ya existe, no lo duplica.
+1.4 Traduccion automatica de descripciones
+------------------------------------------
+Traduce al espanol las descripciones que llegan en ingles
+desde el catalogo externo, antes de mostrarlas o guardarlas.
+Se puede desactivar desde la configuracion.
+==========================================================
+2. FUNCIONES NUEVAS PROPUESTAS
+==========================================================
+2.1 Recordatorios de lectura
+----------------------------
+Avisa al usuario cuando empezo un libro y hace varios dias
+que no lo continua. El aviso ofrece un boton para seguir
+leyendo desde donde lo dejo. Si la app esta cerrada, se puede
+avisar con una notificacion.
+2.2 Acciones y ficha del libro
+------------------------------
+Al seleccionar un libro aparecen dos opciones:
+- Leer: abre el lector directo en el ultimo progreso.
+- Informacion: muestra una ficha con portada, titulo, autor,
+  genero, idioma, descripcion, precuelas y secuelas.
+La lista de precuelas y secuelas se arma primero con los datos
+de la serie del catalogo; si no hay, con otros libros del mismo
+autor; y como ultimo recurso, con recomendaciones del mismo
+genero. Esa lista se guarda en cache para no consultar la
+fuente externa cada vez que se abre la ficha.
+2.3 Comentar una parte del texto
+--------------------------------
+Permite seleccionar un fragmento mientras se lee y dejar un
+comentario sobre esa parte. El comentario queda asociado a ese
+punto del libro, asi el usuario lo vuelve a ver cuando pasa
+por ahi y puede responder o borrar el suyo.
+2.4 Amigos
+----------
+Cada usuario puede agregar amigos y ver su actividad. En la
+pantalla de inicio aparece que libros estan leyendo los amigos
+y sus comentarios.
+Hay dos tipos de comentarios:
+- Comentario general del libro: se escribe una vez y se
+  muestra en la ficha de Informacion del libro.
+- Comentario durante la lectura: se deja en una parte
+  concreta del texto. Mientras se lee aparece en un costado,
+  y al tocarlo se abre para verlo completo.
+Todo esto funciona en celular, computadora y tablet, con la
+pantalla adaptada a cada dispositivo.
+==========================================================
+3. NOTAS FINALES
+==========================================================
+- Orden sugerido: integrar primero la seccion 1 y despues
+  encarar las propuestas de la seccion 2.
+- El contenido viene de Project Gutenberg (dominio publico en
+  EE. UU.). En Argentina el plazo es vida del autor + 70 anos,
+  y las traducciones tienen copyright propio.
+- Los archivos subidos y las bases de datos no se guardan en
+  git.
+
+4. FILTRO PARA PROYECTO GUTENBERG
+==========================================================
+4.1 Función de filtrado
+---------------------------------------
+- Exportar la función `esPublicoArgentina` que recibe `publicacionYear` y opcional `muerteAutorYear`.
+- Devuelve `true` si el libro está en dominio público para Argentina.
+
+4.2 Criterios legales
+---------------------------------------
+- Toda la vida del autor + 70 años a partir del 1 de enero del año siguiente a su muerte.
+- Si se desconoce la muerte, usar la fecha de publicación + 70 años.
+- Las traducciones tienen copyright propio, por lo que se deben evaluar aparte.
+
+4.3 Aplicación al catálogo
+---------------------------------------
+- Para cada libro del catálogo de Project Gutenberg, consultar los campos `author.death_year`, `publication_date` y `translationYear`.
+- Aplicar la función `esPublicoArgentina` a cada uno.
+- Los libros que pasen el filtro se marcan como `publicDomainArgentina: true`.
+- Los que no pasen se marcan como `publicDomainArgentina: false` y pueden habilitarse según la fecha exacta.

@@ -7,15 +7,17 @@ import { ResenaLibro } from '../components/ResenaLibro'
 import { useAsync } from '../hooks/useAsync'
 import { errorMessage } from '../services/apiClient'
 import { listarPorLibro as listarArchivos } from '../services/archivosApi'
-import { eliminarLibro, obtenerLibro } from '../services/librosApi'
+import { eliminarLibro, listarLibros, obtenerLibro } from '../services/librosApi'
 import { crearLectura, eliminarLectura, listarPorLibro as listarLecturas } from '../services/lecturasApi'
 import type { ArchivoDigital, FormatoLectura, Lectura, Libro } from '../types'
 import { ESTADO_LABEL, FORMATOS, FORMATO_LABEL } from '../types'
+import { LibrosRelacionados } from '../components/LibrosRelacionados'
 
 interface Detalle {
   libro: Libro | null
   lecturas: Lectura[]
   archivos: ArchivoDigital[]
+  todos: Libro[]
 }
 
 function formatoArchivo(tamano: number): string {
@@ -33,13 +35,14 @@ export default function LibroDetalle() {
   const [ocupado, setOcupado] = useState(false)
 
   const loader = useCallback(async (): Promise<Detalle> => {
-    if (!id) return { libro: null, lecturas: [], archivos: [] }
-    const [libro, lecturas, archivos] = await Promise.all([
+    if (!id) return { libro: null, lecturas: [], archivos: [], todos: [] }
+    const [libro, lecturas, archivos, todos] = await Promise.all([
       obtenerLibro(id),
       listarLecturas(id),
       listarArchivos(id),
+      listarLibros(),
     ])
-    return { libro, lecturas, archivos }
+    return { libro, lecturas, archivos, todos }
   }, [id])
   const { data, loading, error, reload } = useAsync(loader)
 
@@ -140,12 +143,64 @@ export default function LibroDetalle() {
           </p>
           {libro.descripcion && <p className="description detalle-descripcion">{libro.descripcion}</p>}
           <div className="detalle-actions">
+            {(archivos.length > 0 || lecturas.some((lectura) => lectura.formato !== 'FISICO')) && (
+              <Link className="button secondary" to={`/leer/${libro.id}`}>
+                Leer en línea
+              </Link>
+            )}
             <button type="button" className="link" onClick={() => void borrarLibro()} disabled={ocupado}>
               Eliminar libro
             </button>
           </div>
         </div>
       </header>
+
+      <section className="home-section" style={{ marginTop: 16 }}>
+        <div className="detalle-info-panel">
+          {libro.descripcion && (
+            <>
+              <h2 className="home-heading" style={{ marginTop: 0 }}>
+                Descripción
+              </h2>
+              <p className="description detalle-descripcion">{libro.descripcion}</p>
+            </>
+          )}
+          <h2 className="home-heading" style={{ marginTop: 24 }}>
+            Datos del libro
+          </h2>
+          <ul className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
+            <li className="stat-card">
+              <span className="stat-valor">{libro.isbn ?? '—'}</span>
+              <span className="stat-etiqueta">ISBN</span>
+            </li>
+            <li className="stat-card">
+              <span className="stat-valor">{libro.editorial ?? '—'}</span>
+              <span className="stat-etiqueta">Editorial</span>
+            </li>
+            <li className="stat-card">
+              <span className="stat-valor">{libro.fechaPublicacion ?? '—'}</span>
+              <span className="stat-etiqueta">Publicación</span>
+            </li>
+            <li className="stat-card">
+              <span className="stat-valor">
+                {libro.cantidadPaginas != null ? `${libro.cantidadPaginas} págs.` : '—'}
+              </span>
+              <span className="stat-etiqueta">Páginas</span>
+            </li>
+            <li className="stat-card">
+              <span className="stat-valor">{libro.genero ?? '—'}</span>
+              <span className="stat-etiqueta">Género</span>
+            </li>
+            <li className="stat-card">
+              <span className="stat-valor">
+                {lecturas.length > 0 ? `${Math.round(Math.max(...lecturas.map((l) => l.porcentaje)))}%` : '0%'}
+              </span>
+              <span className="stat-etiqueta">Progreso</span>
+            </li>
+          </ul>
+        </div>
+        <LibrosRelacionados libro={libro} todos={data?.todos ?? []} />
+      </section>
 
       <ResenaLibro key={libro.id} libroId={libro.id} />
 

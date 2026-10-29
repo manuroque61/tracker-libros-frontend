@@ -2,11 +2,12 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BookCover } from '../components/BookCover'
 import { BuscadorISBN } from '../components/BuscadorISBN'
+import { BuscadorGutenberg } from '../components/BuscadorGutenberg'
 import { errorMessage } from '../services/apiClient'
 import { crearLibro, emptyForm, externoToForm } from '../services/librosApi'
 import type { LibroExterno, LibroFormData } from '../types'
 
-type Pestana = 'isbn' | 'manual'
+type Pestana = 'isbn' | 'gutenberg' | 'manual'
 
 export default function AgregarLibro() {
   const navigate = useNavigate()
@@ -78,6 +79,15 @@ export default function AgregarLibro() {
         <button
           type="button"
           role="tab"
+          aria-selected={tab === 'gutenberg'}
+          className={`tab${tab === 'gutenberg' ? ' tab-active' : ''}`}
+          onClick={() => setTab('gutenberg')}
+        >
+          Project Gutenberg
+        </button>
+        <button
+          type="button"
+          role="tab"
           aria-selected={tab === 'manual'}
           className={`tab${tab === 'manual' ? ' tab-active' : ''}`}
           onClick={irManual}
@@ -97,6 +107,12 @@ export default function AgregarLibro() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {tab === 'gutenberg' && (
+        <div className="tab-panel">
+          <BuscadorGutenberg onResultado={onResultado} />
         </div>
       )}
 

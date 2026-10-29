@@ -21,6 +21,15 @@ interface BibliotecaData {
   resenas: Resena[]
 }
 
+function StatCard({ valor, etiqueta }: { valor: number | string; etiqueta: string }) {
+  return (
+    <li className="stat-card">
+      <span className="stat-valor">{valor}</span>
+      <span className="stat-etiqueta">{etiqueta}</span>
+    </li>
+  )
+}
+
 export default function Biblioteca() {
   const loader = useCallback(async (): Promise<BibliotecaData> => {
     const [libros, lecturas] = await Promise.all([listarLibros(), listarTodas()])
@@ -28,7 +37,6 @@ export default function Biblioteca() {
   }, [])
   const { data, loading, error, reload } = useAsync(loader)
 
-  const [query, setQuery] = useLocalStorage('biblioteca.query', '')
   const [formato, setFormato] = useLocalStorage<FiltroFormato>('biblioteca.formato', 'TODOS')
   const [estado, setEstado] = useLocalStorage<FiltroEstado>('biblioteca.estado', 'TODOS')
 
@@ -36,12 +44,17 @@ export default function Biblioteca() {
   const lecturas = data?.lecturas ?? []
   const resenas = data?.resenas ?? []
   const lecturasDe = (libroId: string) => lecturas.filter((lectura) => lectura.libroId === libroId)
+  const lecturasPorLibro = new Map(lecturas.map((lectura) => [lectura.libroId, lectura]))
 
-  const termino = query.trim().toLowerCase()
+  const totalLibros = libros.length
+  const pendientes = libros.filter((libro) => {
+    const lectura = lecturasPorLibro.get(libro.id)
+    return !lectura || lectura.estado === 'PENDIENTE'
+  }).length
+  const leyendo = lecturas.filter((lectura) => lectura.estado === 'LEYENDO').length
+  const terminados = lecturas.filter((lectura) => lectura.estado === 'TERMINADO').length
+
   const filtrados = libros.filter((libro) => {
-    if (termino && !libro.titulo.toLowerCase().includes(termino) && !libro.autor.toLowerCase().includes(termino)) {
-      return false
-    }
     const suyas = lecturasDe(libro.id)
     if (formato !== 'TODOS' && !suyas.some((lectura) => lectura.formato === formato)) return false
     if (estado !== 'TODOS' && !suyas.some((lectura) => lectura.estado === estado)) return false
@@ -59,21 +72,23 @@ export default function Biblioteca() {
 
       {!loading && !error && (
         <>
+          <ul className="stat-grid">
+            <StatCard valor={totalLibros} etiqueta="Libros" />
+            <StatCard valor={pendientes} etiqueta="Pendientes a leer" />
+            <StatCard valor={leyendo} etiqueta="Leyendo" />
+            <StatCard valor={terminados} etiqueta="Terminados" />
+          </ul>
           <Recordatorios libros={libros} lecturas={lecturas} />
           <Recomendaciones items={recomendarLibros(libros, lecturas, resenas)} />
         </>
       )}
 
       <div className="biblioteca-toolbar">
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Buscar por título o autor…"
-          aria-label="Buscar en la biblioteca"
-        />
         <Link className="button" to="/agregar">
           + Agregar libro
+        </Link>
+        <Link className="button" to="/gutenberg" style={{marginLeft: 16}}>
+          Gutenberg
         </Link>
       </div>
 

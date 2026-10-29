@@ -9,6 +9,7 @@ import Estadisticas from './pages/Estadisticas'
 import LibroDetalle from './pages/LibroDetalle'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import Gutenberg from './pages/Gutenberg'
 import SeguimientoFisico from './pages/SeguimientoFisico'
 
 const Lector = lazy(() => import('./pages/Lector'))
@@ -38,6 +39,7 @@ export default function App() {
                   }
                 />
                 <Route path="/estadisticas" element={<Estadisticas />} />
+                <Route path="/gutenberg" element={<Gutenberg />} />
                 <Route path="*" element={<Navigate to="/biblioteca" replace />} />
               </Routes>
             </main>

@@ -390,6 +390,21 @@ button.link {
   box-shadow: none;
 }
 
+.link.activo {
+  color: var(--accent-strong);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.detalle-info-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 16px;
+}
+
 button.link:hover {
   color: var(--accent-strong);
   box-shadow: none;
@@ -1783,4 +1798,188 @@ button.link:hover {
 
 .resena-error {
   color: var(--danger);
+}
+
+/* ===== Recomendaciones Gutenberg ===== */
+.reco-item-gutenberg {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.reco-cover {
+  width: 90px;
+  height: 130px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.reco-titulo {
+  margin: 0 0 4px;
+  font-size: 15px;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.reco-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.reco-actions .button {
+  margin: 0;
+  padding: 7px 12px;
+  font-size: 13px;
+  flex: 1;
+  min-width: 0;
+}
+
+.reco-btn-leer {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.reco-btn-leer:hover:not(:disabled) {
+  background: var(--accent-strong);
+}
+
+.reco-btn-leer:disabled {
+  opacity: 0.6;
+}
+
+.reco-btn-info {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-color: var(--accent-soft);
+}
+
+.reco-btn-info:hover:not(:disabled) {
+  background: var(--accent-soft-strong);
+}
+
+/* ===== Buscador Gutenberg ===== */
+.gutenberg-buscador {
+  margin-top: 10px;
+}
+
+.gutenberg-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 14px 0 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.gutenberg-toolbar input {
+  flex: 1;
+  min-width: 200px;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.gutenberg-toolbar input:focus {
+  outline: none;
+}
+
+.gutenberg-toolbar select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 7px 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.gutenberg-toolbar .button {
+  margin: 0;
+  padding: 8px 14px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.gutenberg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  padding: 0;
+  margin: 10px 0 0;
+  list-style: none;
+}
+
+.gutenberg-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.gutenberg-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+  border-color: var(--accent-border);
+}
+
+.gutenberg-cover {
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
+  display: block;
+}
+
+.gutenberg-body {
+  padding: 10px 12px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.gutenberg-titulo {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.gutenberg-autor {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.gutenberg-fecha {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.gutenberg-usar {
+  margin: 8px 12px 12px;
+  padding: 7px 12px;
+  font-size: 13px;
+  align-self: flex-start;
 }

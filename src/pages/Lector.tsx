@@ -56,6 +56,7 @@ export default function Lector() {
   const [file, setFile] = useState<Archivo | null>(null)
   const [readerError, setReaderError] = useState<string | null>(null)
   const [progreso, setProgreso] = useState<ReaderProgress | null>(null)
+  const [gutenbergCargando, setGutenbergCargando] = useState(false)
 
   const onProgress = useCallback(
     (next: ReaderProgress) => {
@@ -64,6 +65,32 @@ export default function Lector() {
     },
     [save],
   )
+
+  useEffect(() => {
+    let activo = true
+    const gutenbergUrl = searchParams.get('gutenbergUrl')
+    if (!gutenbergUrl || file || !bookId) return
+    ;(async () => {
+      try {
+        setGutenbergCargando(true)
+        setReaderError(null)
+        const response = await fetch(gutenbergUrl, { mode: 'cors' })
+        if (!response.ok) throw new Error('No se pudo descargar el archivo')
+        const buffer = await response.arrayBuffer()
+        const formato: 'PDF' | 'EPUB' = gutenbergUrl.toLowerCase().endsWith('.pdf') ? 'PDF' : 'EPUB'
+        const nombre = gutenbergUrl.split('/').pop() ?? 'libro'
+        if (!activo) return
+        setFile({ data: buffer, formato, nombre })
+        void asociar(bookId, new File([buffer], nombre, { type: formato === 'PDF' ? 'application/pdf' : 'application/epub+zip' }))
+      } catch {
+        if (!activo) return
+        setReaderError('No se pudo descargar el libro de Project Gutenberg. Probá abrirlo manualmente con "Abrir archivo".')
+      } finally {
+        if (activo) setGutenbergCargando(false)
+      }
+    })()
+    return () => { activo = false }
+  }, [searchParams.get('gutenbergUrl'), file, bookId])
 
   async function onOpenFile(event: ChangeEvent<HTMLInputElement>) {
     const selected = event.target.files?.[0]
@@ -128,7 +155,15 @@ export default function Lector() {
 
         {readerError && <div className="alert">{readerError}</div>}
 
-        {!file && (
+        {gutenbergCargando && !file && (
+          <div className="empty lector-empty">
+            <p>Descargando libro de Project Gutenberg…</p>
+            <p className="muted">
+              Esperá un momento mientras se prepara la lectura.
+            </p>
+          </div>
+        )}
+        {!file && !gutenbergCargando && (
           <div className="empty lector-empty">
             <p>Elegí un archivo EPUB o PDF para empezar a leer.</p>
             <p className="muted">

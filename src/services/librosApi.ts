@@ -1,4 +1,5 @@
 import type { Libro, LibroExterno, LibroFormData } from '../types'
+import type { GutenbergLibro } from './gutenbergApi'
 import { apiRequest } from './apiClient'
 import { ensureSeed } from './seed'
 import { delay, nowIso, readStore, uid, writeStore } from './storage'
@@ -30,6 +31,20 @@ export function externoToForm(externo: LibroExterno): LibroFormData {
     editorial: externo.editorial ?? '',
     fechaPublicacion: externo.fechaPublicacion ?? '',
     portadaUrl: externo.portadaUrl ?? '',
+  }
+}
+
+export function gutenbergToForm(libro: GutenbergLibro): LibroFormData {
+  return {
+    isbn: libro.isbn ?? '',
+    titulo: libro.titulo,
+    autor: libro.autores.map((a) => a.name).join(', '),
+    genero: (libro.temas ?? []).join(', '),
+    descripcion: libro.descripcion ?? '',
+    cantidadPaginas: '',
+    editorial: '',
+    fechaPublicacion: libro.fechaPublicacion ?? '',
+    portadaUrl: '',
   }
 }
 
