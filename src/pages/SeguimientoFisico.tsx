@@ -10,6 +10,7 @@ import {
   listarPorLibro,
   listarSesiones,
   registrarSesion,
+  obtenerDatosLocales,
 } from '../services/lecturasApi'
 import type { EstadoLectura, Lectura, Libro } from '../types'
 import { ESTADOS, ESTADO_LABEL } from '../types'
@@ -29,20 +30,16 @@ function fromInputDate(value: string): string | null {
 
 export default function SeguimientoFisico() {
   const { id } = useParams()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const loader = useCallback(async (): Promise<Seguimiento> => {
     if (!id) return { libro: null, lectura: null }
     const libro = await obtenerLibro(id)
     const lecturas = await listarPorLibro(id)
     const preferida = searchParams.get('lectura')
-    let lectura =
-      (preferida ? lecturas.find((item) => item.id === preferida) : undefined) ??
-      lecturas.find((item) => item.formato === 'FISICO') ??
-      null
-    if (!lectura) {
-      lectura = await crearLectura(id, 'FISICO', libro?.cantidadPaginas ?? null)
-    }
+    const lectura = preferida
+      ? lecturas.find((item) => item.id === preferida && item.formato === 'FISICO') ?? null
+      : lecturas.find((item) => item.formato === 'FISICO') ?? null
     return { libro, lectura }
   }, [id, searchParams])
   const { data, loading, error, reload } = useAsync(loader)
@@ -70,12 +67,26 @@ export default function SeguimientoFisico() {
 
   useEffect(() => {
     if (!lectura) return
+    const local = obtenerDatosLocales(lectura.id)
     setEstado(lectura.estado)
     setPagina(lectura.paginaActual != null ? String(lectura.paginaActual) : '')
-    setTotal(lectura.totalPaginas != null ? String(lectura.totalPaginas) : '')
-    setFechaInicio(toInputDate(lectura.fechaInicio))
-    setFechaFin(toInputDate(lectura.fechaFin))
-  }, [lectura?.id, lectura?.ultimaLectura])
+    setTotal(String(local.totalPaginas ?? data?.libro?.cantidadPaginas ?? ''))
+    setFechaInicio(toInputDate(local.fechaInicio !== undefined ? local.fechaInicio : lectura.fechaInicio))
+    setFechaFin(toInputDate(local.fechaFin !== undefined ? local.fechaFin : lectura.fechaFin))
+  }, [lectura, data?.libro?.cantidadPaginas])
+
+  async function crearFisica() {
+    if (!id) return
+    setOcupado(true)
+    setFormError(null)
+    try {
+      const nueva = await crearLectura(id, 'FISICO', null)
+      setSearchParams({ lectura: nueva.id }, { replace: true })
+      reload()
+    } catch (err) {
+      setFormError(errorMessage(err))
+    } finally { setOcupado(false) }
+  }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -83,21 +94,24 @@ export default function SeguimientoFisico() {
     setOcupado(true)
     setFormError(null)
     setOk(null)
+    let progresoGuardado = false
     try {
-      const totalNum = Number.parseInt(total, 10)
-      const pagNum = Number.parseInt(pagina, 10)
-      const totalPag = Number.isNaN(totalNum) ? lectura.totalPaginas ?? null : totalNum
-      const paginaActual = Number.isNaN(pagNum) ? lectura.paginaActual ?? 0 : pagNum
-      const porcentaje = totalPag && totalPag > 0 ? Math.round((paginaActual / totalPag) * 100) : lectura.porcentaje
+      const totalPag = total.trim() ? Number(total) : null
+      const paginaActual = pagina.trim() ? Number(pagina) : lectura.paginaActual ?? 0
+      if (!Number.isSafeInteger(paginaActual) || paginaActual < 0) throw new Error('La página actual debe ser un entero no negativo.')
+      if (totalPag !== null && (!Number.isSafeInteger(totalPag) || totalPag <= 0)) throw new Error('Las páginas totales locales deben ser un entero positivo.')
+      for (const valor of [minutos, paginasLeidas]) {
+        if (valor.trim() && (!Number.isSafeInteger(Number(valor)) || Number(valor) < 0)) throw new Error('Minutos y páginas leídas deben ser enteros no negativos.')
+      }
 
       await actualizarProgreso(lectura.id, {
-        porcentaje,
         paginaActual,
         totalPaginas: totalPag,
-        estado,
+        ...(estado !== lectura.estado ? { estado } : {}),
         fechaInicio: fechaInicio ? fromInputDate(fechaInicio) : null,
         fechaFin: fechaFin ? fromInputDate(fechaFin) : null,
       })
+      progresoGuardado = true
 
       const min = minutos.trim()
       const pags = paginasLeidas.trim()
@@ -115,9 +129,10 @@ export default function SeguimientoFisico() {
 
       reload()
       reloadSesiones()
-      setOk('Progreso guardado.')
+      setOk('Progreso y estado guardados en el servidor. Fechas editables, páginas totales y sesiones se conservan solo en este navegador. El porcentaje lo calcula el servidor con las páginas del catálogo.')
     } catch (err) {
-      setFormError(errorMessage(err))
+      setFormError(`${progresoGuardado ? 'El progreso ya se guardó en el servidor. ' : ''}${errorMessage(err)}`)
+      reload()
     } finally {
       setOcupado(false)
     }
@@ -140,7 +155,7 @@ export default function SeguimientoFisico() {
   }
 
   const libro = data?.libro
-  if (!libro || !lectura) {
+  if (!libro) {
     return (
       <div className="empty">
         <p>No encontramos este libro.</p>
@@ -150,6 +165,15 @@ export default function SeguimientoFisico() {
       </div>
     )
   }
+
+  if (!lectura) return (
+    <section className="empty">
+      <p>No hay una lectura física válida seleccionada para este libro.</p>
+      {formError && <div className="alert">{formError}</div>}
+      <button type="button" disabled={ocupado} onClick={() => void crearFisica()}>Crear lectura física</button>
+      <Link to={`/libro/${libro.id}`}>Volver al libro o seleccionar una lectura existente</Link>
+    </section>
+  )
 
   return (
     <section>
@@ -162,6 +186,7 @@ export default function SeguimientoFisico() {
       <header className="page-header">
         <h1>Seguimiento físico</h1>
         <p className="muted">Registrá tu estado, la página actual y las sesiones de lectura de este ejemplar.</p>
+        <p className="hint">Página actual y estado se guardan en el servidor mediante peticiones independientes. Fechas editables, páginas totales y sesiones son provisionales y locales. El total local no modifica el porcentaje del servidor.</p>
       </header>
 
       <div className="seguimiento-resumen">
@@ -184,18 +209,18 @@ export default function SeguimientoFisico() {
             <label htmlFor="s-pagina">Página actual</label>
             <input id="s-pagina" inputMode="numeric" value={pagina} onChange={(event) => setPagina(event.target.value)} />
 
-            <label htmlFor="s-total">Páginas totales</label>
+            <label htmlFor="s-total">Páginas totales (local)</label>
             <input id="s-total" inputMode="numeric" value={total} onChange={(event) => setTotal(event.target.value)} />
 
-            <label htmlFor="s-inicio">Fecha de inicio</label>
+            <label htmlFor="s-inicio">Fecha de inicio (local)</label>
             <input id="s-inicio" type="date" value={fechaInicio} onChange={(event) => setFechaInicio(event.target.value)} />
 
-            <label htmlFor="s-fin">Fecha de finalización</label>
+            <label htmlFor="s-fin">Fecha de finalización (local)</label>
             <input id="s-fin" type="date" value={fechaFin} onChange={(event) => setFechaFin(event.target.value)} />
           </div>
 
           <div className="form-fields sesion-box">
-            <h3>Nueva sesión (opcional)</h3>
+            <h3>Nueva sesión local (opcional)</h3>
             <label htmlFor="s-minutos">Minutos</label>
             <input id="s-minutos" inputMode="numeric" value={minutos} onChange={(event) => setMinutos(event.target.value)} />
 
@@ -222,7 +247,7 @@ export default function SeguimientoFisico() {
         </div>
       </form>
 
-      <h2 className="home-heading">Historial de sesiones</h2>
+      <h2 className="home-heading">Historial de sesiones locales</h2>
       {(!sesiones || sesiones.length === 0) && <p className="muted">Todavía no hay sesiones registradas.</p>}
       {sesiones && sesiones.length > 0 && (
         <ul className="sesion-list">

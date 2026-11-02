@@ -6,6 +6,7 @@ import { useLecturaSync } from '../hooks/useLecturaSync'
 import { asociar } from '../services/archivosApi'
 import { obtenerLibro } from '../services/librosApi'
 import { crearLectura, listarPorLibro } from '../services/lecturasApi'
+import { errorMessage } from '../services/apiClient'
 import { EpubReader } from '../readers/EpubReader'
 import { PdfReader } from '../readers/PdfReader'
 import type { ReaderProgress } from '../readers/types'
@@ -51,7 +52,7 @@ export default function Lector() {
   }, [lecturaPreferida, lecturaId])
 
   const lectura = lecturaId ? (data?.lecturas ?? []).find((item) => item.id === lecturaId) ?? null : null
-  const { saving, savedAt, save } = useLecturaSync(lectura?.id)
+  const { saving, savedAt, save, flush, error: syncError } = useLecturaSync(lectura?.id)
 
   const [file, setFile] = useState<Archivo | null>(null)
   const [readerError, setReaderError] = useState<string | null>(null)
@@ -71,16 +72,16 @@ export default function Lector() {
     setReaderError(null)
     const formato: 'PDF' | 'EPUB' = selected.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'EPUB'
     try {
+      if (!await flush()) throw new Error('Guardá o reintentá el progreso pendiente antes de cambiar de archivo.')
+      const existente = data?.lecturas.find((item) => item.formato === formato)
+      const elegida = existente ?? await crearLectura(bookId, formato, null)
       const buffer = await selected.arrayBuffer()
+      await asociar(bookId, selected)
+      setLecturaId(elegida.id)
       setFile({ data: buffer, formato, nombre: selected.name })
-      void asociar(bookId, selected)
-      if (!lectura) {
-        const nueva = await crearLectura(bookId, formato, null)
-        setLecturaId(nueva.id)
-        reload()
-      }
-    } catch {
-      setReaderError('No se pudo leer el archivo seleccionado.')
+      if (!existente) reload()
+    } catch (error) {
+      setReaderError(errorMessage(error))
     }
   }
 
@@ -127,13 +128,13 @@ export default function Lector() {
         </div>
 
         {readerError && <div className="alert">{readerError}</div>}
+        {syncError && <div className="alert">No se pudo guardar el progreso: {syncError} <button type="button" onClick={() => void flush()}>Reintentar</button></div>}
 
         {!file && (
           <div className="empty lector-empty">
             <p>Elegí un archivo EPUB o PDF para empezar a leer.</p>
             <p className="muted">
-              El lector funciona de forma local: el archivo no se sube a ningún servidor. Tu posición se guarda en este
-              dispositivo y se restaura al volver.
+              El archivo se abre localmente y todavía no se sube al servidor. El progreso y la posición se guardan en el servidor; para continuar debés volver a seleccionar el archivo.
             </p>
             <label className="button">
               Abrir archivo

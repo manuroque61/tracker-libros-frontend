@@ -51,7 +51,7 @@ export interface Libro {
   editorial?: string | null
   fechaPublicacion?: string | null
   portadaUrl?: string | null
-  creadoEn: string
+  creadoEn?: string | null
 }
 
 export interface Lectura {
@@ -63,6 +63,7 @@ export interface Lectura {
   paginaActual?: number | null
   totalPaginas?: number | null
   ubicacionDigital?: string | null
+  fechaAgregado?: string | null
   ultimaLectura?: string | null
   fechaInicio?: string | null
   fechaFin?: string | null

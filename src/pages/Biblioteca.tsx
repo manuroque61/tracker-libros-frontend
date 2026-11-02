@@ -23,7 +23,8 @@ interface BibliotecaData {
 
 export default function Biblioteca() {
   const loader = useCallback(async (): Promise<BibliotecaData> => {
-    const [libros, lecturas] = await Promise.all([listarLibros(), listarTodas()])
+    const lecturas = await listarTodas()
+    const libros = await listarLibros(lecturas)
     return { libros, lecturas, resenas: listarResenas() }
   }, [])
   const { data, loading, error, reload } = useAsync(loader)
@@ -56,6 +57,8 @@ export default function Biblioteca() {
           Una sola biblioteca para libros físicos y digitales. Filtrá por formato, estado o buscá por título y autor.
         </p>
       </header>
+
+      <p className="hint">Lecturas, progreso y estados se guardan en el servidor. Reseñas y recomendaciones se calculan localmente en este navegador; archivos y otras funciones continúan en integración.</p>
 
       {!loading && !error && (
         <>

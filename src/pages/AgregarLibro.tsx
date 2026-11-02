@@ -4,7 +4,8 @@ import { BookCover } from '../components/BookCover'
 import { BuscadorISBN } from '../components/BuscadorISBN'
 import { errorMessage } from '../services/apiClient'
 import { crearLibro, emptyForm, externoToForm } from '../services/librosApi'
-import type { LibroExterno, LibroFormData } from '../types'
+import { FORMATOS, FORMATO_LABEL } from '../types'
+import type { FormatoLectura, LibroExterno, LibroFormData } from '../types'
 
 type Pestana = 'isbn' | 'manual'
 
@@ -12,6 +13,7 @@ export default function AgregarLibro() {
   const navigate = useNavigate()
   const [tab, setTab] = useState<Pestana>('isbn')
   const [form, setForm] = useState<LibroFormData>(() => emptyForm())
+  const [formato, setFormato] = useState<FormatoLectura>('FISICO')
   const [mostrarForm, setMostrarForm] = useState(false)
   const [sinResultado, setSinResultado] = useState(false)
   const [guardando, setGuardando] = useState(false)
@@ -44,7 +46,7 @@ export default function AgregarLibro() {
     setGuardando(true)
     setError(null)
     try {
-      const libro = await crearLibro(form)
+      const libro = await crearLibro(form, formato)
       navigate(`/libro/${libro.id}`)
     } catch (err) {
       setError(errorMessage(err))
@@ -104,6 +106,11 @@ export default function AgregarLibro() {
         <form className="form libro-form" onSubmit={onSubmit}>
           <div className="form-grid">
             <div className="form-fields">
+              <label htmlFor="f-formato">Formato *</label>
+              <select id="f-formato" value={formato} onChange={(event) => setFormato(event.target.value as FormatoLectura)} disabled={guardando}>
+                {FORMATOS.map((option) => <option key={option} value={option}>{FORMATO_LABEL[option]}</option>)}
+              </select>
+
               <label htmlFor="f-isbn">ISBN</label>
               <input id="f-isbn" value={form.isbn} onChange={(event) => actualizar('isbn', event.target.value)} />
 

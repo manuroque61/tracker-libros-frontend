@@ -2,7 +2,7 @@ import { getToken, setToken } from './authToken'
 
 const STATUS_MESSAGES: Record<number, string> = {
   400: 'La solicitud no es válida.',
-  401: 'Email o contraseña incorrectos.',
+  401: 'Tu sesión no es válida o venció. Volvé a iniciar sesión.',
   404: 'No se encontró el recurso solicitado.',
   409: 'El recurso ya existe.',
   500: 'Ocurrió un error en el servidor.',
@@ -31,27 +31,32 @@ export function errorMessage(error: unknown): string {
  */
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken()
+  const headers = new Headers(init.headers)
+  if (!headers.has('Accept')) headers.set('Accept', 'application/json')
+  if (init.body != null && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
+  if (token) headers.set('Authorization', `Bearer ${token}`)
   let res: Response
   try {
     res = await fetch(path, {
       ...init,
-      headers: {
-        Accept: 'application/json',
-        ...(init.body != null ? { 'Content-Type': 'application/json' } : {}),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(init.headers ?? {}),
-      },
+      headers,
     })
   } catch {
     throw new ApiError(0, 'Sin conexión con el servidor. Verificá que el backend esté corriendo en localhost:8080.')
   }
+
+  if (token !== getToken()) throw new ApiError(401, 'La sesión cambió. Volvé a cargar la página.')
 
   if (res.ok) {
     if (res.status === 204) return undefined as T
     return (await res.json()) as T
   }
 
-  let message = STATUS_MESSAGES[res.status] ?? `Error ${res.status}`
+  let message = res.status === 401 && path === '/api/auth/login'
+    ? 'Email o contraseña incorrectos.'
+    : STATUS_MESSAGES[res.status] ?? `Error ${res.status}`
   try {
     const body = (await res.json()) as { message?: string }
     if (body.message) message = body.message
