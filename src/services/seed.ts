@@ -1,5 +1,5 @@
 import type { Anotacion, Lectura, Libro, Sesion } from '../types'
-import { readStore, writeStore } from './storage'
+import { readStore, removeStore, writeStore } from './storage'
 
 function daysAgo(days: number): string {
   const date = new Date()
@@ -228,7 +228,7 @@ export function ensureSeed(): void {
 
 export function resetSeed(): void {
   for (const key of KEYS) {
-    window.localStorage.removeItem(`libros-tracker.${key}`)
+    removeStore(key)
   }
   ensureSeed()
 }

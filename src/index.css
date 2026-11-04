@@ -1058,6 +1058,36 @@ button.link:hover {
     border-left: none;
     border-right: none;
   }
+
+  .lector {
+    gap: 14px;
+  }
+
+  .lector > .reader-shell {
+    height: calc(100dvh - 180px);
+    min-height: 55dvh;
+  }
+
+  .lector .reader-bar {
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .lector .lector-bar > .back-link {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
+
+  .lector .lector-bar .reader-controls {
+    width: 100%;
+    margin-left: 0;
+    justify-content: space-between;
+  }
+
+  .lector .lector-bar .sync-state {
+    min-width: 0;
+    text-align: left;
+  }
 }
 
 /* ===== Biblioteca ===== */

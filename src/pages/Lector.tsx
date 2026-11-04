@@ -7,6 +7,7 @@ import { asociar } from '../services/archivosApi'
 import { obtenerLibro } from '../services/librosApi'
 import { crearLectura, listarPorLibro } from '../services/lecturasApi'
 import { EpubReader } from '../readers/EpubReader'
+import { GutenbergHtmlReader } from '../readers/GutenbergHtmlReader'
 import { PdfReader } from '../readers/PdfReader'
 import type { ReaderProgress } from '../readers/types'
 import type { Lectura, Libro } from '../types'
@@ -131,6 +132,8 @@ export default function Lector() {
   }
 
   const libro = data.libro
+  const gutenbergHtmlUrl = libro.gutenbergUrlHtml ?? undefined
+  const gutenbergEpubUrl = libro.gutenbergUrlEpub ?? undefined
 
   return (
     <div className="lector">
@@ -163,7 +166,7 @@ export default function Lector() {
             </p>
           </div>
         )}
-        {!file && !gutenbergCargando && (
+        {!file && !gutenbergCargando && !gutenbergHtmlUrl && !gutenbergEpubUrl && (
           <div className="empty lector-empty">
             <p>Elegí un archivo EPUB o PDF para empezar a leer.</p>
             <p className="muted">
@@ -184,6 +187,15 @@ export default function Lector() {
             onProgress={onProgress}
             onError={setReaderError}
           />
+        )}
+        {!file && gutenbergHtmlUrl && (
+          <GutenbergHtmlReader src={gutenbergHtmlUrl} title={`Leer ${libro.titulo}`} />
+        )}
+        {!file && !gutenbergHtmlUrl && gutenbergEpubUrl && (
+          <div className="empty lector-empty">
+            <p>Gutenberg no ofrece una versión HTML para leer este título dentro de la app.</p>
+            <a className="button" href={gutenbergEpubUrl}>Abrir EPUB de Gutenberg</a>
+          </div>
         )}
         {file?.formato === 'PDF' && (
           <PdfReader

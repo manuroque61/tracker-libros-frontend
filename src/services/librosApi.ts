@@ -44,7 +44,7 @@ export function gutenbergToForm(libro: GutenbergLibro): LibroFormData {
     cantidadPaginas: '',
     editorial: '',
     fechaPublicacion: libro.fechaPublicacion ?? '',
-    portadaUrl: '',
+    portadaUrl: libro.portadaUrl ?? '',
   }
 }
 
@@ -101,6 +101,25 @@ export async function crearLibro(form: LibroFormData): Promise<Libro> {
   const libro: Libro = { id: uid(), creadoEn: nowIso(), ...formToLibro(form) }
   writeStore(KEY, [...libros, libro])
   return libro
+}
+
+export async function crearLibroGutenberg(externo: GutenbergLibro): Promise<{ libro: Libro; creado: boolean }> {
+  ensureSeed()
+  await delay()
+  const libros = readStore<Libro[]>(KEY, [])
+  const existente = libros.find((libro) => libro.gutenbergId === externo.id)
+  if (existente) return { libro: existente, creado: false }
+
+  const nuevo: Libro = {
+    id: uid(),
+    creadoEn: nowIso(),
+    ...formToLibro(gutenbergToForm(externo)),
+    gutenbergId: externo.id,
+    gutenbergUrlHtml: externo.urlHtml ?? null,
+    gutenbergUrlEpub: externo.urlEpub ?? null,
+  }
+  writeStore(KEY, [...libros, nuevo])
+  return { libro: nuevo, creado: true }
 }
 
 export async function actualizarLibro(id: string, form: LibroFormData): Promise<Libro> {

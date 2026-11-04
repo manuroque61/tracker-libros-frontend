@@ -13,6 +13,16 @@ export function LibroCard({ libro, lecturas }: LibroCardProps) {
   const formatos = [...new Set(lecturas.map((lectura) => lectura.formato))]
   const progreso = lecturas.length > 0 ? Math.max(...lecturas.map((lectura) => lectura.porcentaje)) : 0
   const principal = lecturas.find((lectura) => lectura.estado === 'LEYENDO') ?? lecturas[0]
+  const formatoDigital = formatos.some((formato) => formato !== 'FISICO')
+  const lecturaFisica = lecturas.find((lectura) => lectura.formato === 'FISICO')
+  const fuenteGutenberg = Boolean(libro.gutenbergUrlHtml || libro.gutenbergUrlEpub)
+  const rutaLectura = formatoDigital || fuenteGutenberg
+    ? `/leer/${libro.id}`
+    : lecturaFisica
+      ? `/libro/${libro.id}/seguimiento?lectura=${lecturaFisica.id}`
+      : `/leer/${libro.id}`
+  const sinLecturaDisponible =
+    Boolean(libro.gutenbergId) && !formatoDigital && !fuenteGutenberg && !lecturaFisica
 
   return (
     <li className="card">
@@ -31,13 +41,17 @@ export function LibroCard({ libro, lecturas }: LibroCardProps) {
         </p>
         {lecturas.length > 0 && <Progreso value={progreso} label={`${Math.round(progreso)}%`} />}
         <div className="card-actions">
-          {formatos.some((formato) => formato !== 'FISICO') && (
-            <Link className="button secondary" to={`/leer/${libro.id}`}>
-              Leer en línea
+          {sinLecturaDisponible ? (
+            <button className="button secondary" type="button" disabled>
+              Lectura no disponible
+            </button>
+          ) : (
+            <Link className="button secondary" to={rutaLectura}>
+              Leer
             </Link>
           )}
           <Link className="button secondary" to={`/libro/${libro.id}`}>
-            Ver detalle
+            Información
           </Link>
         </div>
       </div>

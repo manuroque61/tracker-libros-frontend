@@ -4,8 +4,10 @@ import { BookCover } from '../components/BookCover'
 import { BuscadorISBN } from '../components/BuscadorISBN'
 import { BuscadorGutenberg } from '../components/BuscadorGutenberg'
 import { errorMessage } from '../services/apiClient'
-import { crearLibro, emptyForm, externoToForm } from '../services/librosApi'
+import { crearLibro, crearLibroGutenberg, emptyForm, externoToForm } from '../services/librosApi'
+import { crearLectura } from '../services/lecturasApi'
 import type { LibroExterno, LibroFormData } from '../types'
+import type { GutenbergLibro } from '../services/gutenbergApi'
 
 type Pestana = 'isbn' | 'gutenberg' | 'manual'
 
@@ -36,6 +38,14 @@ export default function AgregarLibro() {
     setError(null)
   }
 
+  async function agregarDesdeGutenberg(libroGutenberg: GutenbergLibro) {
+    const resultado = await crearLibroGutenberg(libroGutenberg)
+    if (resultado.creado && (libroGutenberg.urlHtml || libroGutenberg.urlEpub)) {
+      await crearLectura(resultado.libro.id, 'EPUB', null)
+    }
+    navigate('/biblioteca')
+  }
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
     if (!form.titulo.trim() || !form.autor.trim()) {
@@ -61,8 +71,8 @@ export default function AgregarLibro() {
       <header className="page-header">
         <h1>Agregar libro</h1>
         <p className="muted">
-          Buscá por ISBN en Open Library para prellenar los datos, o cargá el libro manualmente. La búsqueda no guarda
-          nada: vos confirmás.
+          Buscá por ISBN en Open Library para completar los datos, elegí un libro de Gutenberg para agregarlo directamente,
+          o cargá uno manualmente.
         </p>
       </header>
 
@@ -112,7 +122,7 @@ export default function AgregarLibro() {
 
       {tab === 'gutenberg' && (
         <div className="tab-panel">
-          <BuscadorGutenberg onResultado={onResultado} />
+          <BuscadorGutenberg onAgregar={agregarDesdeGutenberg} />
         </div>
       )}
 

@@ -1,18 +1,21 @@
 import { useEffect, useState } from 'react'
-import type { LibroExterno } from '../types'
-import { listarLibrosGutenberg, type GutenbergLibro } from '../services/gutenbergApi'
+import { buscarPaginaGutenberg, type GutenbergLibro } from '../services/gutenbergApi'
 import { BookCover } from './BookCover'
 
 interface BuscadorGutenbergProps {
-  onResultado: (externo: LibroExterno) => void
+  onAgregar: (libro: GutenbergLibro) => Promise<void>
 }
 
-export function BuscadorGutenberg({ onResultado }: BuscadorGutenbergProps) {
+export function BuscadorGutenberg({ onAgregar }: BuscadorGutenbergProps) {
   const [idioma, setIdioma] = useState('es')
   const [busqueda, setBusqueda] = useState('')
   const [libros, setLibros] = useState<GutenbergLibro[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [pagina, setPagina] = useState(1)
+  const [haySiguiente, setHaySiguiente] = useState(false)
+  const [agregandoId, setAgregandoId] = useState<string | null>(null)
+  const [errorAgregar, setErrorAgregar] = useState<string | null>(null)
 
   useEffect(() => {
     let activo = true
@@ -20,9 +23,10 @@ export function BuscadorGutenberg({ onResultado }: BuscadorGutenbergProps) {
       try {
         setCargando(true)
         setError(null)
-        const data = await listarLibrosGutenberg(idioma)
+        const data = await buscarPaginaGutenberg(idioma, busqueda, pagina)
         if (!activo) return
-        setLibros(data)
+        setLibros(data.libros)
+        setHaySiguiente(data.haySiguiente)
       } catch (err: any) {
         if (!activo) return
         setError(err?.message ?? 'No se pudo cargar el catálogo de Project Gutenberg')
@@ -31,42 +35,34 @@ export function BuscadorGutenberg({ onResultado }: BuscadorGutenbergProps) {
       }
     })()
     return () => { activo = false }
-  }, [idioma])
+  }, [idioma, busqueda, pagina])
 
-  const filtrados = libros.filter((libro) => {
-    const texto = `${libro.titulo} ${libro.autores.map((a) => a.name).join(' ')} ${libro.temas?.join(' ') ?? ''}`.toLowerCase()
-    return texto.includes(busqueda.trim().toLowerCase())
-  })
-
-  function seleccionar(libro: GutenbergLibro) {
-    const externo: LibroExterno = {
-      isbn: libro.isbn ?? '',
-      titulo: libro.titulo,
-      autor: libro.autores.map((a) => a.name).join(', '),
-      genero: (libro.temas ?? []).join(', ') || undefined,
-      descripcion: libro.descripcion ?? undefined,
-      cantidadPaginas: undefined,
-      editorial: undefined,
-      fechaPublicacion: libro.fechaPublicacion ?? undefined,
-      portadaUrl: libro.portadaUrl ?? undefined,
+  async function agregar(libro: GutenbergLibro) {
+    setAgregandoId(libro.id)
+    setErrorAgregar(null)
+    try {
+      await onAgregar(libro)
+    } catch (err) {
+      setErrorAgregar(err instanceof Error ? err.message : 'No se pudo agregar el libro')
+    } finally {
+      setAgregandoId(null)
     }
-    onResultado(externo)
   }
 
   return (
     <div className="gutenberg-buscador">
       <form
         className="gutenberg-toolbar"
-        onSubmit={(event) => event.preventDefault()}
+        onSubmit={(event) => { event.preventDefault(); setPagina(1) }}
       >
         <input
           type="search"
           value={busqueda}
-          onChange={(event) => setBusqueda(event.target.value)}
+          onChange={(event) => { setBusqueda(event.target.value); setPagina(1) }}
           placeholder="Buscar por título, autor o tema…"
           aria-label="Buscar en Project Gutenberg"
         />
-        <select value={idioma} onChange={(event) => setIdioma(event.target.value)}>
+        <select value={idioma} onChange={(event) => { setIdioma(event.target.value); setPagina(1) }}>
           <option value="es">Español</option>
           <option value="en">Inglés</option>
           <option value="fr">Francés</option>
@@ -76,6 +72,7 @@ export function BuscadorGutenberg({ onResultado }: BuscadorGutenbergProps) {
         </button>
       </form>
       {error && <div className="alert">{error}</div>}
+      {errorAgregar && <div className="alert">{errorAgregar}</div>}
       {cargando && (
         <p className="muted placeholder">
           <span className="spinner" /> Cargando catálogo de Project Gutenberg…
@@ -84,15 +81,15 @@ export function BuscadorGutenberg({ onResultado }: BuscadorGutenbergProps) {
       {!cargando && !error && (
         <>
           <p className="muted">
-            {filtrados.length} libro(s) de dominio público encontrados.
+            {libros.length} libro(s) en esta página.
           </p>
           <ul className="gutenberg-grid">
-            {filtrados.length === 0 && (
+            {libros.length === 0 && (
               <li style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--muted)' }}>
                 No se encontraron libros con esos filtros.
               </li>
             )}
-            {filtrados.map((libro) => (
+            {libros.map((libro) => (
               <li key={libro.id} className="gutenberg-card">
                 <BookCover src={libro.portadaUrl} title={libro.titulo} />
                 <div className="gutenberg-body">
@@ -106,18 +103,24 @@ export function BuscadorGutenberg({ onResultado }: BuscadorGutenbergProps) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => seleccionar(libro)}
+                  onClick={() => void agregar(libro)}
+                  disabled={agregandoId !== null}
                   className="button secondary gutenberg-usar"
                 >
-                  Usar este libro
+                  {agregandoId === libro.id ? 'Agregando…' : 'Agregar a biblioteca'}
                 </button>
               </li>
             ))}
           </ul>
+          <nav aria-label="Paginación de resultados" className="gutenberg-toolbar">
+            <button type="button" className="button secondary" onClick={() => setPagina((actual) => Math.max(1, actual - 1))} disabled={pagina === 1 || cargando}>Anterior</button>
+            <span className="muted">Página {pagina}</span>
+            <button type="button" className="button secondary" onClick={() => setPagina((actual) => actual + 1)} disabled={!haySiguiente || cargando}>Siguiente</button>
+          </nav>
         </>
       )}
       <p className="hint">
-        Project Gutenberg ofrece libros de dominio público. Al seleccionar uno se prellenan los datos en el formulario; podés editarlos antes de guardar.
+        Project Gutenberg ofrece libros de dominio público. Al agregar uno, se guarda en tu biblioteca y podés abrirlo desde allí.
       </p>
     </div>
   )

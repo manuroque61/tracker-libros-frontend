@@ -51,6 +51,9 @@ export interface Libro {
   editorial?: string | null
   fechaPublicacion?: string | null
   portadaUrl?: string | null
+  gutenbergId?: string | null
+  gutenbergUrlHtml?: string | null
+  gutenbergUrlEpub?: string | null
   creadoEn: string
 }
 
