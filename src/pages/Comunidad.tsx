@@ -128,6 +128,24 @@ export default function Comunidad() {
                 <button className="button secondary" disabled={!amigos.length}>Invitar</button>
               </form>}
               {club.estado === 'ACTIVO' && idValido && <button className="button secondary" onClick={() => seleccionarConversacion({ type: 'club', id: club.id, name: club.nombre })}>Chat</button>}
+              {club.estado === 'ACTIVO' && club.rol === 'ADMIN' && idValido && (
+                <button
+                  className="link"
+                  onClick={() => {
+                    if (!window.confirm(`¿Eliminar el club «${club.nombre}»? Se borrarán sus mensajes, invitaciones y comentarios. Esta acción no se puede deshacer.`)) return
+                    void submit({ preventDefault() {} } as FormEvent, async () => {
+                      await api.eliminarClub(club.id)
+                      if (selected?.type === 'club' && selected.id === club.id) {
+                        setSelected(null)
+                        setMensajes([])
+                        lastMessageId.current = 0
+                      }
+                    }, 'Club eliminado.')
+                  }}
+                >
+                  Eliminar club
+                </button>
+              )}
             </div>
           })}
           <h3>Descubrir clubes públicos</h3>

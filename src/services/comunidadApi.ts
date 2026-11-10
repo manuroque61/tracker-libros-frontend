@@ -19,6 +19,10 @@ export const listarClubes = () => apiRequest<Club[]>(`${base}/clubes`)
 export const crearClub = (club: { nombre: string; descripcion: string; publico: boolean; bookKey?: string; tituloLibro?: string }) => apiRequest<Club>(`${base}/clubes`, { method: 'POST', body: JSON.stringify(club) })
 export const listarClubesPublicos = () => apiRequest<Club[]>(`${base}/clubes/publicos`)
 export const unirseAClub = (id: number) => apiRequest<Club>(`${base}/clubes/${id}/unirse`, { method: 'POST' })
+export const eliminarClub = (id: number) => {
+  if (!Number.isSafeInteger(id) || id <= 0) return Promise.reject(new Error('No se pudo identificar el club. Actualiza la lista e inténtalo otra vez.'))
+  return apiRequest<void>(`${base}/clubes/${id}`, { method: 'DELETE' })
+}
 export const invitarAlClub = (id: number, email: string) => {
   if (!Number.isSafeInteger(id) || id <= 0) return Promise.reject(new Error('No se pudo identificar el club. Actualiza la lista e inténtalo otra vez.'))
   return apiRequest<Club>(`${base}/clubes/${id}/invitaciones`, { method: 'POST', body: JSON.stringify({ email }) })
