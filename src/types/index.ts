@@ -42,7 +42,10 @@ export const ESTADO_LABEL: Record<EstadoLectura, string> = {
 
 export interface Libro {
   id: string
+  /** Clave social inmutable para mantener unidos reseñas y conversaciones de clubes. */
+  claveClub?: string | null
   isbn?: string | null
+  isbns?: string[] | null
   titulo: string
   autor: string
   genero?: string | null
@@ -52,14 +55,32 @@ export interface Libro {
   fechaPublicacion?: string | null
   portadaUrl?: string | null
   gutenbergId?: string | null
+  idiomaGutenberg?: string | null
   gutenbergUrlHtml?: string | null
   gutenbergUrlEpub?: string | null
+  openLibraryId?: string | null
+  openLibraryEdiciones?: string[] | null
+  openLibraryIdiomas?: string[] | null
+  openLibraryReadUrl?: string | null
+  openLibraryBorrowUrl?: string | null
+  versionesGutenberg?: VersionGutenberg[] | null
   creadoEn: string
+}
+
+export interface VersionGutenberg {
+  id: string
+  titulo: string
+  autor: string
+  idioma: string
+  urlEpub?: string | null
+  urlHtml?: string | null
+  urlPdf?: string | null
 }
 
 export interface Lectura {
   id: string
   libroId: string
+  versionId?: string | null
   formato: FormatoLectura
   estado: EstadoLectura
   porcentaje: number

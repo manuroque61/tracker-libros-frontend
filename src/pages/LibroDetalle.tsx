@@ -4,10 +4,14 @@ import { AnotacionPanel } from '../components/AnotacionPanel'
 import { BookCover } from '../components/BookCover'
 import { Progreso } from '../components/Progreso'
 import { ResenaLibro } from '../components/ResenaLibro'
+import { ResenasAmigosLibro } from '../components/ResenasAmigosLibro'
+import { ComentariosClub } from '../components/ComentariosClub'
+import { VersionesLibro } from '../components/VersionesLibro'
 import { useAsync } from '../hooks/useAsync'
 import { errorMessage } from '../services/apiClient'
+import { portadaGutenbergPorId } from '../services/gutenbergApi'
 import { listarPorLibro as listarArchivos } from '../services/archivosApi'
-import { eliminarLibro, listarLibros, obtenerLibro } from '../services/librosApi'
+import { claveClubLibro, eliminarLibro, listarLibros, obtenerLibro } from '../services/librosApi'
 import { crearLectura, eliminarLectura, listarPorLibro as listarLecturas } from '../services/lecturasApi'
 import type { ArchivoDigital, FormatoLectura, Lectura, Libro } from '../types'
 import { ESTADO_LABEL, FORMATOS, FORMATO_LABEL } from '../types'
@@ -120,6 +124,10 @@ export default function LibroDetalle() {
 
   const lecturas = data?.lecturas ?? []
   const archivos = data?.archivos ?? []
+  const bookKey = claveClubLibro(libro)
+  const lecturaClub = [...lecturas]
+    .filter((lectura) => lectura.formato === 'EPUB')
+    .sort((a, b) => (b.ultimaLectura ?? '').localeCompare(a.ultimaLectura ?? ''))[0]
 
   return (
     <section>
@@ -130,7 +138,7 @@ export default function LibroDetalle() {
       </p>
 
       <header className="detalle-header">
-        <BookCover src={libro.portadaUrl ?? undefined} title={libro.titulo} />
+        <BookCover src={libro.portadaUrl ?? (libro.gutenbergId ? portadaGutenbergPorId(libro.gutenbergId) : undefined)} title={libro.titulo} />
         <div className="detalle-info">
           <h1>{libro.titulo}</h1>
           <p className="authors">{libro.autor}</p>
@@ -143,7 +151,7 @@ export default function LibroDetalle() {
           </p>
           {libro.descripcion && <p className="description detalle-descripcion">{libro.descripcion}</p>}
           <div className="detalle-actions">
-            {(archivos.length > 0 || lecturas.some((lectura) => lectura.formato !== 'FISICO')) && (
+            {(archivos.length > 0 || lecturas.some((lectura) => lectura.formato !== 'FISICO') || libro.openLibraryReadUrl || libro.openLibraryBorrowUrl || libro.gutenbergId || (libro.versionesGutenberg?.length ?? 0) > 0) && (
               <Link className="button secondary" to={`/leer/${libro.id}`}>
                 Leer en línea
               </Link>
@@ -202,7 +210,23 @@ export default function LibroDetalle() {
         <LibrosRelacionados libro={libro} todos={data?.todos ?? []} />
       </section>
 
-      <ResenaLibro key={libro.id} libroId={libro.id} />
+      <VersionesLibro libro={libro} onActualizar={reload} />
+
+      <section className="detalle-club-comments">
+        <h2>Comentarios del club</h2>
+        <ComentariosClub
+          bookKey={bookKey}
+          titulo={libro.titulo}
+          porcentaje={lecturaClub?.porcentaje ?? 0}
+          ubicacion={lecturaClub?.ubicacionDigital ?? null}
+        />
+      </section>
+
+      <section className="detalle-comentarios-generales">
+        <h2 className="home-heading">Comentarios generales</h2>
+        <ResenaLibro key={libro.id} libroId={libro.id} titulo={libro.titulo} autor={libro.autor} bookKey={bookKey} portadaUrl={libro.portadaUrl} />
+        <ResenasAmigosLibro key={bookKey} bookKey={bookKey} />
+      </section>
 
       <h2 className="home-heading">Lecturas</h2>
       {lecturas.length === 0 && <p className="muted">Este libro todavía no tiene lecturas registradas.</p>}
@@ -226,7 +250,7 @@ export default function LibroDetalle() {
                   Seguimiento físico
                 </Link>
               ) : (
-                <Link className="button secondary" to={`/leer/${libro.id}?lectura=${lectura.id}`}>
+                <Link className="button secondary" to={`/leer/${libro.id}?lectura=${lectura.id}${lectura.versionId ? `&gutenbergId=${encodeURIComponent(lectura.versionId)}` : ''}`}>
                   Continuar leyendo
                 </Link>
               )}

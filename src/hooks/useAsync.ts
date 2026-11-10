@@ -25,7 +25,9 @@ export function useAsync<T>(loader: () => Promise<T>) {
         if (!cancelled) setState({ data, loading: false, error: null })
       })
       .catch((error: unknown) => {
-        if (!cancelled) setState({ data: null, loading: false, error: errorMessage(error) })
+        if (!cancelled) {
+          setState((previous) => ({ data: previous.data, loading: false, error: errorMessage(error) }))
+        }
       })
     return () => {
       cancelled = true

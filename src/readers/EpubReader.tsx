@@ -71,11 +71,14 @@ function chapterLabelFor(href: string, toc: NavItem[]): string {
 interface EpubReaderProps {
   data: ArrayBuffer
   initialLocation?: string | null
+  jumpToLocation?: string | null
+  jumpToPercentage?: number | null
+  jumpRequestId?: number
   onProgress: (progress: ReaderProgress) => void
   onError: (message: string) => void
 }
 
-export function EpubReader({ data, initialLocation, onProgress, onError }: EpubReaderProps) {
+export function EpubReader({ data, initialLocation, jumpToLocation, jumpToPercentage, jumpRequestId, onProgress, onError }: EpubReaderProps) {
   const { theme } = useTheme()
 
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -118,16 +121,19 @@ export function EpubReader({ data, initialLocation, onProgress, onError }: EpubR
     if (instance) {
       try {
         const value = instance.locations.percentageFromCfi(loc.start.cfi)
-        if (typeof value === 'number' && !Number.isNaN(value) && value > 0) {
-          return Math.round(Math.min(1, Math.max(0, value)) * 100)
+        if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+          return Math.round(Math.min(1, Math.max(0, value)) * 10_000) / 100
         }
       } catch {
         /* ubicaciones aún no generadas */
       }
     }
+    if (Number.isFinite(loc.start.percentage) && loc.start.percentage >= 0) {
+      return Math.round(Math.min(1, Math.max(0, loc.start.percentage)) * 10_000) / 100
+    }
     const fallback = loc.start.displayed
     if (fallback.total > 0) {
-      return Math.min(100, Math.max(0, Math.round((fallback.page / fallback.total) * 100)))
+      return Math.min(100, Math.max(0, Math.round((fallback.page / fallback.total) * 10_000) / 100))
     }
     return 0
   }, [])
@@ -141,9 +147,10 @@ export function EpubReader({ data, initialLocation, onProgress, onError }: EpubR
       try {
         const loadedNav = await instance.loaded.navigation
         if (cancelled) return
+        await instance.locations.generate(1600).catch(() => undefined)
+        if (cancelled) return
         setToc(flattenToc(loadedNav.toc))
         setBookReady(true)
-        void instance.locations.generate(1600).catch(() => undefined)
       } catch (err) {
         if (!cancelled) errorRef.current(err instanceof Error ? err.message : 'No se pudo abrir el EPUB')
       }
@@ -172,10 +179,28 @@ export function EpubReader({ data, initialLocation, onProgress, onError }: EpubR
 
     let cancelled = false
     const instance = bookRef.current
+    const container = containerRef.current
+    const allowIframeUnload = (element: Element) => {
+      if (element instanceof HTMLIFrameElement) {
+        const features = element.allow.split(';').map((feature) => feature.trim()).filter(Boolean)
+        if (!features.some((feature) => feature === 'unload' || feature.startsWith('unload '))) {
+          element.allow = [...features, 'unload'].join('; ')
+        }
+      }
+      element.querySelectorAll('iframe').forEach((iframe) => allowIframeUnload(iframe))
+    }
+    // EPUB.js creates chapter iframes dynamically. Delegate only the unload
+    // feature so its cleanup listener is allowed; scripts remain sandboxed.
+    const iframeObserver = new MutationObserver((records) => {
+      records.forEach((record) => record.addedNodes.forEach((node) => {
+        if (node instanceof Element) allowIframeUnload(node)
+      }))
+    })
+    iframeObserver.observe(container, { childList: true, subtree: true })
     const options =
       mode === 'scrolled'
-        ? { width: '100%', height: '100%', flow: 'scrolled', manager: 'continuous', allowScriptedContent: true }
-        : { width: '100%', height: '100%', flow: 'paginated', spread: 'none', allowScriptedContent: true }
+        ? { width: '100%', height: '100%', flow: 'scrolled', manager: 'continuous' }
+        : { width: '100%', height: '100%', flow: 'paginated', spread: 'none' }
 
     const rendition = instance.renderTo(containerRef.current, options as never)
     renditionRef.current = rendition
@@ -218,6 +243,7 @@ export function EpubReader({ data, initialLocation, onProgress, onError }: EpubR
 
     return () => {
       cancelled = true
+      iframeObserver.disconnect()
       if (renditionRef.current === rendition) {
         try {
           rendition.destroy()
@@ -228,6 +254,30 @@ export function EpubReader({ data, initialLocation, onProgress, onError }: EpubR
       }
     }
   }, [bookReady, mode, computePercent, initialLocation])
+
+  useEffect(() => {
+    if (!bookReady || !renditionRef.current || (!jumpToLocation && jumpToPercentage == null)) return
+    const instance = bookRef.current
+    let percentageCfi: string | undefined
+    if (instance && jumpToPercentage != null) {
+      try {
+        percentageCfi = instance.locations.cfiFromPercentage(Math.min(100, Math.max(0, jumpToPercentage)) / 100)
+      } catch {
+        percentageCfi = undefined
+      }
+    }
+    void renditionRef.current.display(jumpToLocation ?? percentageCfi).catch(async (err: unknown) => {
+      if (percentageCfi && jumpToLocation) {
+        try {
+          await renditionRef.current?.display(percentageCfi)
+          return
+        } catch {
+          /* reporta el error original si tampoco funciona el porcentaje */
+        }
+      }
+      errorRef.current(err instanceof Error ? err.message : 'No se pudo abrir el punto guardado')
+    })
+  }, [bookReady, jumpToLocation, jumpToPercentage, jumpRequestId])
 
   function changeFontSize(delta: number) {
     const next = Math.min(160, Math.max(80, fontSize + delta))

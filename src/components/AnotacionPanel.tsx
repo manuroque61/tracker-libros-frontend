@@ -10,6 +10,7 @@ interface AnotacionPanelProps {
   lecturaId?: string | null
   ubicacionActual?: string | null
   porcentajeActual?: number | null
+  requiereProgreso?: boolean
   onVerUbicacion?: (anotacion: Anotacion) => void
 }
 
@@ -20,6 +21,7 @@ export function AnotacionPanel({
   lecturaId,
   ubicacionActual,
   porcentajeActual,
+  requiereProgreso = false,
   onVerUbicacion,
 }: AnotacionPanelProps) {
   const loader = useCallback(() => listarPorLibro(libroId), [libroId])
@@ -33,6 +35,10 @@ export function AnotacionPanel({
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
+    if (requiereProgreso && porcentajeActual == null) {
+      setFormError('Esperá a que el lector marque tu progreso antes de guardar la anotación.')
+      return
+    }
     if (tipo !== 'MARCADOR' && !texto.trim()) {
       setFormError('Escribí el texto de la anotación.')
       return
@@ -46,8 +52,8 @@ export function AnotacionPanel({
         tipo,
         texto: texto.trim() || TIPO_ANOTACION_LABEL[tipo],
         cita: tipo === 'RESALTADO' ? texto.trim() || null : null,
-        ubicacion: ubicacionActual ?? null,
-        porcentaje: porcentajeActual ?? null,
+        ubicacion: ubicacionActual?.trim() || null,
+        porcentaje: porcentajeActual == null ? null : Math.min(100, Math.max(0, porcentajeActual)),
       })
       setTexto('')
       reload()
@@ -83,7 +89,10 @@ export function AnotacionPanel({
           placeholder={tipo === 'MARCADOR' ? 'Etiqueta del marcador (opcional)' : 'Escribí una nota o cita…'}
         />
         {formError && <p className="hint">{formError}</p>}
-        <button type="submit" disabled={guardando} className="button secondary">
+        {requiereProgreso && porcentajeActual == null && (
+          <p className="muted">La anotación guardará el punto del libro cuando el lector indique tu progreso.</p>
+        )}
+        <button type="submit" disabled={guardando || (requiereProgreso && porcentajeActual == null)} className="button secondary">
           {guardando ? 'Guardando…' : 'Agregar anotación'}
         </button>
       </form>
@@ -106,9 +115,9 @@ export function AnotacionPanel({
               </div>
               <p className="anotacion-texto">{anotacion.texto}</p>
               <div className="anotacion-actions">
-                {onVerUbicacion && anotacion.ubicacion && (
+                {onVerUbicacion && (anotacion.ubicacion || anotacion.porcentaje != null) && (
                   <button type="button" className="link" onClick={() => onVerUbicacion(anotacion)}>
-                    Ir a ubicación
+                    {anotacion.porcentaje != null ? `Ir al punto guardado (${Math.round(anotacion.porcentaje)}%)` : 'Ir a ubicación'}
                   </button>
                 )}
                 <button type="button" className="link" onClick={() => void onEliminar(anotacion.id)}>

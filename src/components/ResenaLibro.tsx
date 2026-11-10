@@ -1,13 +1,20 @@
 import { useState } from 'react'
+import { useAuth } from '../auth'
 import { eliminarResena, guardarResena, obtenerResena } from '../services/resenasApi'
+import { eliminarCalificacionCompartida, syncCalificaciones } from '../services/comunidadApi'
 
 interface ResenaLibroProps {
   libroId: string
+  titulo: string
+  autor: string
+  bookKey: string
+  portadaUrl?: string | null
 }
 
 type Aviso = { tipo: 'ok' | 'error'; texto: string }
 
-export function ResenaLibro({ libroId }: ResenaLibroProps) {
+export function ResenaLibro({ libroId, titulo, autor, bookKey, portadaUrl }: ResenaLibroProps) {
+  const { user } = useAuth()
   const [resena, setResena] = useState(() => obtenerResena(libroId))
   const [estrellas, setEstrellas] = useState(resena?.estrellas ?? 0)
   const [texto, setTexto] = useState(resena?.texto ?? '')
@@ -21,15 +28,33 @@ export function ResenaLibro({ libroId }: ResenaLibroProps) {
     const guardada = guardarResena(libroId, estrellas, texto)
     setResena(guardada)
     setTexto(guardada.texto)
-    setAviso({ tipo: 'ok', texto: 'Reseña guardada.' })
+    if (!user) {
+      setAviso({ tipo: 'ok', texto: 'Reseña guardada en este dispositivo. Iniciá sesión para compartirla con tus amigos.' })
+      return
+    }
+    setAviso({ tipo: 'ok', texto: 'Reseña guardada. Compartiendo con tus amigos…' })
+    void syncCalificaciones([{
+      bookKey,
+      titulo,
+      autor,
+      portadaUrl: portadaUrl ?? undefined,
+      estrellas: guardada.estrellas,
+      comentario: guardada.texto,
+    }]).then(() => setAviso({ tipo: 'ok', texto: 'Reseña guardada y compartida con tus amigos.' }))
+      .catch(() => setAviso({ tipo: 'error', texto: 'La reseña quedó guardada, pero no se pudo compartir. Revisá tu conexión e intentá guardarla otra vez.' }))
   }
 
-  function borrar() {
-    eliminarResena(libroId)
-    setResena(null)
-    setEstrellas(0)
-    setTexto('')
-    setAviso({ tipo: 'ok', texto: 'Reseña eliminada.' })
+  async function borrar() {
+    try {
+      if (user) await eliminarCalificacionCompartida(bookKey)
+      eliminarResena(libroId)
+      setResena(null)
+      setEstrellas(0)
+      setTexto('')
+      setAviso({ tipo: 'ok', texto: 'Reseña eliminada.' })
+    } catch (error) {
+      setAviso({ tipo: 'error', texto: error instanceof Error ? `No se pudo eliminar la reseña compartida: ${error.message}` : 'No se pudo eliminar la reseña compartida.' })
+    }
   }
 
   return (
@@ -74,7 +99,7 @@ export function ResenaLibro({ libroId }: ResenaLibroProps) {
           Guardar reseña
         </button>
         {resena && (
-          <button type="button" className="link" onClick={borrar}>
+          <button type="button" className="link" onClick={() => void borrar()}>
             Eliminar reseña
           </button>
         )}

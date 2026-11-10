@@ -18,6 +18,7 @@ export function Header() {
         <NavLink to="/biblioteca">Biblioteca</NavLink>
         <NavLink to="/agregar">Agregar</NavLink>
         <NavLink to="/estadisticas">Estadísticas</NavLink>
+        {user && <NavLink to="/comunidad">Comunidad</NavLink>}
       </nav>
       <div className="topbar-actions">
         {user ? (

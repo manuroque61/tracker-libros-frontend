@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { buscarPaginaGutenberg, type GutenbergLibro } from '../services/gutenbergApi'
 import { GutenbergReader } from '../readers/GutenbergReader'
+import { readStore, removeStore, writeStore } from '../services/storage'
+
+const LIBRO_SELECCIONADO_KEY = 'gutenberg.libroSeleccionado'
 
 function PortadaGutenberg({ src, titulo }: { src?: string; titulo: string }) {
   const [error, setError] = useState(false)
@@ -23,7 +26,19 @@ export default function GutenbergPage() {
   const [busqueda, setBusqueda] = useState('')
   const [pagina, setPagina] = useState(1)
   const [haySiguiente, setHaySiguiente] = useState(false)
-  const [libroSeleccionado, setLibroSeleccionado] = useState<GutenbergLibro | null>(null)
+  const [libroSeleccionado, setLibroSeleccionado] = useState<GutenbergLibro | null>(
+    () => readStore<GutenbergLibro | null>(LIBRO_SELECCIONADO_KEY, null),
+  )
+
+  function abrirLibro(libro: GutenbergLibro) {
+    setLibroSeleccionado(libro)
+    writeStore(LIBRO_SELECCIONADO_KEY, libro)
+  }
+
+  function cerrarLibro() {
+    setLibroSeleccionado(null)
+    removeStore(LIBRO_SELECCIONADO_KEY)
+  }
 
   useEffect(() => {
     let activo = true
@@ -89,9 +104,9 @@ export default function GutenbergPage() {
 
       {cargando && <p role="status">Cargando libros...</p>}
       {error && <p role="alert" style={{ color: '#c00' }}>{error}</p>}
-      {!cargando && !error && libros.length === 0 && <p>No se encontraron libros con los filtros actuales.</p>}
+      {!cargando && !error && libros.length === 0 && !haySiguiente && <p>No se encontraron libros con los filtros actuales.</p>}
 
-      {!cargando && !error && libros.length > 0 && (
+      {!cargando && !error && (libros.length > 0 || pagina > 1 || haySiguiente) && (
         <>
           <ul style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20, listStyle: 'none', padding: 0, margin: 0 }}>
             {libros.map((libro) => (
@@ -100,7 +115,7 @@ export default function GutenbergPage() {
                 <h3 style={{ margin: '0 0 4px', fontSize: 16, color: '#333' }}>{libro.titulo}</h3>
                 <p style={{ margin: '0 0 4px', fontSize: 14, color: '#666' }}>{libro.autores.map((autor) => autor.name).join(', ')}</p>
                 <p style={{ margin: 0, fontSize: 12, color: '#999' }}>{libro.idioma.toUpperCase()} • {libro.fechaPublicacion ?? ''}</p>
-                <button type="button" onClick={() => setLibroSeleccionado(libro)} style={{ marginTop: 8, padding: '6px 12px', background: '#0066cc', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                <button type="button" onClick={() => abrirLibro(libro)} style={{ marginTop: 8, padding: '6px 12px', background: '#0066cc', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
                   Leer
                 </button>
               </li>
@@ -115,7 +130,7 @@ export default function GutenbergPage() {
       )}
 
       {libroSeleccionado && (
-        <GutenbergReader libro={libroSeleccionado} onCerrar={() => setLibroSeleccionado(null)} />
+        <GutenbergReader key={libroSeleccionado.id} libro={libroSeleccionado} onCerrar={cerrarLibro} />
       )}
     </section>
   )

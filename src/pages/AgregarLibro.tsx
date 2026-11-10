@@ -3,13 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import { BookCover } from '../components/BookCover'
 import { BuscadorISBN } from '../components/BuscadorISBN'
 import { BuscadorGutenberg } from '../components/BuscadorGutenberg'
+import { BuscadorOpenLibrary } from '../components/BuscadorOpenLibrary'
 import { errorMessage } from '../services/apiClient'
-import { crearLibro, crearLibroGutenberg, emptyForm, externoToForm } from '../services/librosApi'
+import { crearLibro, crearLibroGutenberg, crearLibroOpenLibrary, emptyForm, externoToForm } from '../services/librosApi'
 import { crearLectura } from '../services/lecturasApi'
 import type { LibroExterno, LibroFormData } from '../types'
 import type { GutenbergLibro } from '../services/gutenbergApi'
+import type { LibroOpenLibrary } from '../services/openLibraryApi'
 
-type Pestana = 'isbn' | 'gutenberg' | 'manual'
+type Pestana = 'isbn' | 'openlibrary' | 'gutenberg' | 'manual'
 
 export default function AgregarLibro() {
   const navigate = useNavigate()
@@ -41,9 +43,14 @@ export default function AgregarLibro() {
   async function agregarDesdeGutenberg(libroGutenberg: GutenbergLibro) {
     const resultado = await crearLibroGutenberg(libroGutenberg)
     if (resultado.creado && (libroGutenberg.urlHtml || libroGutenberg.urlEpub)) {
-      await crearLectura(resultado.libro.id, 'EPUB', null)
+      await crearLectura(resultado.libro.id, 'EPUB', null, libroGutenberg.id)
     }
     navigate('/biblioteca')
+  }
+
+  async function agregarDesdeOpenLibrary(libro: LibroOpenLibrary) {
+    const resultado = await crearLibroOpenLibrary(libro)
+    navigate(`/libro/${resultado.libro.id}`)
   }
 
   async function onSubmit(event: FormEvent) {
@@ -89,6 +96,15 @@ export default function AgregarLibro() {
         <button
           type="button"
           role="tab"
+          aria-selected={tab === 'openlibrary'}
+          className={`tab${tab === 'openlibrary' ? ' tab-active' : ''}`}
+          onClick={() => setTab('openlibrary')}
+        >
+          Open Library
+        </button>
+        <button
+          type="button"
+          role="tab"
           aria-selected={tab === 'gutenberg'}
           className={`tab${tab === 'gutenberg' ? ' tab-active' : ''}`}
           onClick={() => setTab('gutenberg')}
@@ -123,6 +139,12 @@ export default function AgregarLibro() {
       {tab === 'gutenberg' && (
         <div className="tab-panel">
           <BuscadorGutenberg onAgregar={agregarDesdeGutenberg} />
+        </div>
+      )}
+
+      {tab === 'openlibrary' && (
+        <div className="tab-panel">
+          <BuscadorOpenLibrary onAgregar={agregarDesdeOpenLibrary} />
         </div>
       )}
 

@@ -24,6 +24,7 @@ export async function crearLectura(
   libroId: string,
   formato: FormatoLectura,
   totalPaginas: number | null,
+  versionId?: string | null,
 ): Promise<Lectura> {
   ensureSeed()
   await delay(80)
@@ -31,6 +32,7 @@ export async function crearLectura(
   const nueva: Lectura = {
     id: uid(),
     libroId,
+    versionId: versionId ?? null,
     formato,
     estado: 'PENDIENTE',
     porcentaje: 0,

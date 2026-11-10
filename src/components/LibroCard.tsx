@@ -3,6 +3,7 @@ import type { Lectura, Libro } from '../types'
 import { ESTADO_LABEL, FORMATO_LABEL } from '../types'
 import { BookCover } from './BookCover'
 import { Progreso } from './Progreso'
+import { portadaGutenbergPorId } from '../services/gutenbergApi'
 
 interface LibroCardProps {
   libro: Libro
@@ -15,8 +16,9 @@ export function LibroCard({ libro, lecturas }: LibroCardProps) {
   const principal = lecturas.find((lectura) => lectura.estado === 'LEYENDO') ?? lecturas[0]
   const formatoDigital = formatos.some((formato) => formato !== 'FISICO')
   const lecturaFisica = lecturas.find((lectura) => lectura.formato === 'FISICO')
-  const fuenteGutenberg = Boolean(libro.gutenbergUrlHtml || libro.gutenbergUrlEpub)
-  const rutaLectura = formatoDigital || fuenteGutenberg
+  const fuenteGutenberg = Boolean(libro.gutenbergId || libro.gutenbergUrlHtml || libro.gutenbergUrlEpub)
+  const fuenteOpenLibrary = Boolean(libro.openLibraryReadUrl || libro.openLibraryBorrowUrl)
+  const rutaLectura = formatoDigital || fuenteGutenberg || fuenteOpenLibrary
     ? `/leer/${libro.id}`
     : lecturaFisica
       ? `/libro/${libro.id}/seguimiento?lectura=${lecturaFisica.id}`
@@ -26,7 +28,7 @@ export function LibroCard({ libro, lecturas }: LibroCardProps) {
 
   return (
     <li className="card">
-      <BookCover src={libro.portadaUrl ?? undefined} title={libro.titulo} />
+      <BookCover src={libro.portadaUrl ?? (libro.gutenbergId ? portadaGutenbergPorId(libro.gutenbergId) : undefined)} title={libro.titulo} />
       <div className="card-body">
         <h2>{libro.titulo}</h2>
         <p className="authors">{libro.autor}</p>

@@ -6,7 +6,8 @@ interface BookCoverProps {
 }
 
 export function BookCover({ src, title }: BookCoverProps) {
-  const [failed, setFailed] = useState(false)
+  const [failedSrc, setFailedSrc] = useState<string | undefined>()
+  const failed = failedSrc === src
 
   if (!src || failed) {
     return (
@@ -26,7 +27,7 @@ export function BookCover({ src, title }: BookCoverProps) {
         src={src}
         alt={title}
         loading="lazy"
-        onError={() => setFailed(true)}
+        onError={() => setFailedSrc(src)}
       />
     </div>
   )
