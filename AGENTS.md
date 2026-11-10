@@ -6,10 +6,11 @@ Aplicación en español para organizar lecturas de libros físicos y digitales, 
 
 ### Requisitos
 
-- Node.js 20 o superior (probado con Node 24) y npm.
+- Node.js 20.19+ o 22.12+ (Vite 8 lo exige; probado con Node 24) y npm.
 - JDK 21 para el backend.
 - MySQL corriendo en `localhost:3306`.
 - Git.
+- Conexión a internet la primera vez (npm, Maven y las APIs externas).
 
 ### Frontend (`tracker-libros-frontend`)
 
@@ -20,13 +21,13 @@ Aplicación en español para organizar lecturas de libros físicos y digitales, 
 
 ### Backend (`tracker-libros-backend`)
 
-1. Clonar: `git clone https://github.com/manuroque61/tracker-libros-backend.git`.
+1. Clonar: `git clone https://github.com/manuroque61/tracker-libros-backend.git` (la ruta final es libre; aquí se usa `D:\proyects\libros-tracker-back\tracker-libros-backend`).
 2. Crear la base de datos en MySQL: `CREATE DATABASE tracker_libros CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`
 3. Copiar `src/main/resources/application.properties.example` a `application.properties` (está ignorado por Git; cada PC lo configura localmente) y completar:
    - `spring.datasource.username` y `spring.datasource.password`.
    - `security.jwt.secret` con un valor aleatorio largo.
-   - `gutenberg.rapidapi.key` con una clave propia de RapidAPI. La línea **no está** en el example: agregarla a mano. Nunca commitearla ni compartirla.
-4. Levantar con `./mvnw.cmd spring-boot:run` en Windows (`./mvnw spring-boot:run` en Unix). Hibernate crea/actualiza el esquema solo (`ddl-auto=update`).
+   - `gutenberg.rapidapi.key` con una clave propia de RapidAPI. Nunca commitearla ni compartirla. Sin esta clave el catálogo en español igual funciona (usa Gutendex sin clave), pero el filtro en inglés/otro idioma y el respaldo de español fallarán.
+4. Levantar con `./mvnw.cmd spring-boot:run` en Windows (`./mvnw spring-boot:run` en Unix). La primera vez el wrapper descarga Maven 3.9.16 y las dependencias (tarda más). Hibernate crea/actualiza el esquema solo (`ddl-auto=update`).
 5. Comprobar el puerto `:8080` antes de arrancar para evitar instancias duplicadas.
 
 ### Orden de arranque
@@ -40,7 +41,7 @@ Si el frontend está sin backend, las llamadas a `/api` fallan con «Sin conexi�
 ## Repositorios y estructura
 
 - El frontend real vive en la raíz de este repositorio: `src/`, `index.html`, `package.json` y `vite.config.ts`. Usa React 19, TypeScript, Vite, React Router y oxlint.
-- El backend real está en el repositorio separado `D:\proyects\libros-tracker-back\tracker-libros-backend`. Usa Spring Boot 4, Java 21, MySQL y el paquete `ies.belgrano.tracker_libros`. Su responsable habitual es Manu (`manuroque61`).
+- El backend real está en el repositorio separado `tracker-libros-backend`. Usa Spring Boot 4, Java 21, MySQL y el paquete `ies.belgrano.tracker_libros`. Su responsable habitual es Manu (`manuroque61`). En esta PC la ruta local es `D:\proyects\libros-tracker-back\tracker-libros-backend`; en otra PC puede estar donde se haya clonado.
 - `backend/` dentro de este repositorio es una copia local antigua y sin Git. No leerla ni editarla.
 - `frontend/` solo puede contener restos locales; el código fuente frontend está en la raíz.
 - `storage/` y `uploads/` contienen archivos locales y no deben explorarse sin necesidad.
@@ -54,7 +55,7 @@ Frontend, desde la raíz:
 - `npm run build` ejecuta `tsc -b && vite build`.
 - `npm run preview` sirve la compilación.
 
-Backend, desde `D:\proyects\libros-tracker-back\tracker-libros-backend`:
+Backend, desde la carpeta clonada de `tracker-libros-backend`:
 
 - `./mvnw spring-boot:run` inicia Spring Boot en `:8080` (en PowerShell puede usarse `./mvnw.cmd spring-boot:run`).
 - `./mvnw test` ejecuta las pruebas.
@@ -96,8 +97,8 @@ Antes de iniciar otro proceso, comprobar si ya hay uno escuchando en el puerto p
 - Project Gutenberg aporta obras y descargas de dominio público. La intención acordada es combinar ambas fuentes en la información del libro y permitir elegir entre versiones disponibles, por idioma y fuente/formato cuando existan.
 - Los identificadores de Open Library y Gutenberg no son intercambiables. Mantener el ID externo, ISBN y/o identidad de obra junto con el libro local para conservar compatibilidad con reseñas, clubes y progreso. No crear duplicados al elegir otra edición/version.
 - Una URL de Gutenberg puede redirigir a otro dominio y bloquearse por CORS desde el navegador. No asumir que el fetch directo funcionará ni cambiar la estrategia de descarga sin probarla; revisar si el backend ofrece un proxy antes de añadir uno.
-- Gutenberg tuvo respuestas 503 desde Gutendex. La integración actual usa el servicio de RapidAPI Project Gutenberg. La clave se configura solo localmente en `src/main/resources/application.properties` del backend, archivo ignorado por Git. Nunca escribir claves en código, frontend, logs, documentación, comandos visibles, commits ni respuestas. No deshacer el ignore ni incluir ese archivo en un commit.
-- La búsqueda RapidAPI trabaja con resultados paginados (se verificó una respuesta de 32 elementos y `next` para seguir cargando). Mantener paginación desde UI/API y no reemplazar la búsqueda por una lista fija de pocos ejemplos. No afirmar que el filtro de idioma del proveedor funciona sin verificarlo: los parámetros probados no dieron resultados fiables.
+- Gutenberg consulta dos fuentes desde `GutenbergService`: para español intenta primero Gutendex (`https://gutendex.com`, sin clave) con un timeout corto (`gutenberg.gutendex.timeout-ms`, 3000 ms) y si no responde cae a RapidAPI; para inglés y demás idiomas va directo a RapidAPI. La clave de RapidAPI se configura solo localmente en `src/main/resources/application.properties` del backend, archivo ignorado por Git. Nunca escribir claves en código, frontend, logs, documentación, comandos visibles, commits ni respuestas. No deshacer el ignore ni incluir ese archivo en un commit.
+- Ambas fuentes devuelven páginas de 32 resultados con `next`/`page` para seguir cargando. Mantener paginación desde UI/API y no reemplazar la búsqueda por una lista fija de pocos ejemplos. No afirmar que el filtro de idioma de RapidAPI funciona sin verificarlo: los parámetros probados no dieron resultados fiables; el filtro de idioma confiable es el de Gutendex (`languages`).
 
 ### Comunidad, amistades y clubes
 
