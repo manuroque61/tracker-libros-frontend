@@ -4,6 +4,8 @@ Aplicación en español para organizar lecturas de libros físicos y digitales, 
 
 ## Puesta en marcha en una PC nueva
 
+> **Importante — ramas:** las ramas por defecto de los repos (`main` en el frontend y `1-springboot-init` en el backend) están desactualizadas. Clonar SIEMPRE con `-b` usando las ramas activas, o el código nuevo no llega:
+
 ### Requisitos
 
 - Node.js 20.19+ o 22.12+ (Vite 8 lo exige; probado con Node 24) y npm.
@@ -14,14 +16,14 @@ Aplicación en español para organizar lecturas de libros físicos y digitales, 
 
 ### Frontend (`tracker-libros-frontend`)
 
-1. Clonar: `git clone https://github.com/manuroque61/tracker-libros-frontend.git`.
+1. Clonar: `git clone -b feature/gutenberg-reader https://github.com/manuroque61/tracker-libros-frontend.git`.
 2. Instalar dependencias desde la raíz: `npm install` (o `npm ci` para replicar exactamente el lockfile).
 3. No usa variables de entorno: el proxy de Vite en `vite.config.ts` envía `/api` a `http://localhost:8080`.
 4. Verificar que nada esté ya escuchando en `:5173` y levantar con `npm run dev`.
 
 ### Backend (`tracker-libros-backend`)
 
-1. Clonar: `git clone https://github.com/manuroque61/tracker-libros-backend.git` (la ruta final es libre; aquí se usa `D:\proyects\libros-tracker-back\tracker-libros-backend`).
+1. Clonar: `git clone -b feature/endpoints-faltantes https://github.com/manuroque61/tracker-libros-backend.git` (la ruta final es libre; aquí se usa `D:\proyects\libros-tracker-back\tracker-libros-backend`).
 2. Crear la base de datos en MySQL: `CREATE DATABASE tracker_libros CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`
 3. Copiar `src/main/resources/application.properties.example` a `application.properties` (está ignorado por Git; cada PC lo configura localmente) y completar:
    - `spring.datasource.username` y `spring.datasource.password`.
